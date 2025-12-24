@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InkShelf Editor</title>
+  <link rel="stylesheet" href="editor.css">
+</head>
+<body>
+  <!-- Sidebar Toggle (visible when collapsed) -->
+  <button id="sidebarToggleFloat" class="sidebar-toggle-float" style="display: none;" title="Show sidebar">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </button>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>My Documents</h2>
+      <button id="sidebarToggle" class="btn-icon" title="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="sidebar-content">
+      <div class="sidebar-actions">
+        <button id="newDocBtn" class="btn btn-small btn-primary">+ New Document</button>
+      </div>
+      <div class="document-list" id="documentList">
+        <p class="empty-state">No saved documents yet</p>
+      </div>
+    </div>
+  </aside>
+
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <h1 class="title" id="docTitle" contenteditable="true" spellcheck="false">InkShelf Editor</h1>
+        <span class="url" id="sourceUrl"></span>
+      </div>
+      <div class="header-right">
+        <div class="view-mode-toggle">
+          <button id="previewModeBtn" class="btn btn-mode active" title="Preview only">Preview</button>
+          <button id="editModeBtn" class="btn btn-mode" title="Edit only">Edit</button>
+          <button id="splitModeBtn" class="btn btn-mode" title="Split view">Split</button>
+        </div>
+        <button id="themeToggle" class="btn btn-icon" title="Toggle theme">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        </button>
+        <button id="saveBtn" class="btn btn-primary">Save</button>
+        <button id="downloadBtn" class="btn btn-secondary">Download</button>
+        <button id="copyBtn" class="btn btn-secondary">Copy</button>
+        <button id="deleteBtn" class="btn btn-danger" style="display: none;">Delete</button>
+      </div>
+    </header>
+    
+    <!-- Main Content Area -->
+    <main class="main-content" id="mainContent">
+      <!-- Edit Mode -->
+      <div id="editPanel" class="edit-container" style="display: none;">
+        <textarea id="markdownEditor" class="markdown-editor" placeholder="Start writing in Markdown..."></textarea>
+      </div>
+      
+      <!-- Preview Mode -->
+      <div id="previewPanel" class="preview-container">
+        <div id="previewContent" class="preview-content"></div>
+      </div>
+    </main>
+    
+    <!-- Status Bar -->
+    <footer class="status-bar">
+      <span id="statusText">Preview Mode</span>
+      <span id="wordCount">0 words</span>
+    </footer>
+  </div>
+  
+  <!-- Drop Zone Overlay -->
+  <div id="dropZone" class="drop-zone" style="display: none;">
+    <div class="drop-zone-content">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+      <p>Drop your .md file here</p>
+    </div>
+  </div>
+  
+  <script src="libs/marked.min.js"></script>
+  <script src="storage.js"></script>
+  <script src="editor.js"></script>
+</body>
+</html>
