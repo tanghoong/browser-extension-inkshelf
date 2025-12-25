@@ -115,7 +115,7 @@ async function initializeEditor(data) {
   renderPreview();
   
   // Save to IndexedDB
-  await storageManager.saveDraft({
+  const savedDoc = await storageManager.saveDraft({
     docId: currentDocId,
     content: currentContent,
     title: currentTitle,
@@ -123,14 +123,13 @@ async function initializeEditor(data) {
     mode: data.mode
   });
   
-  // Load document tags and group info after saving
-  const doc = await storageManager.getDraft(currentDocId);
-  if (doc) {
-    loadDocumentTags(doc);
+  // Load document tags and group info from the saved document
+  if (savedDoc) {
+    loadDocumentTags(savedDoc);
     
     // Update group select
     if (groupSelect) {
-      groupSelect.value = doc.groupId || '';
+      groupSelect.value = savedDoc.groupId || '';
     }
   }
 }
@@ -1896,12 +1895,11 @@ function renderCurrentTags() {
 async function saveDocumentTags() {
   if (currentDocId) {
     // Use the updateTags method which properly updates both tags array and frontmatter
-    await storageManager.updateTags(currentDocId, currentTags);
+    const updatedDoc = await storageManager.updateTags(currentDocId, currentTags);
     
-    // Reload the document to get updated content with new frontmatter
-    const doc = await storageManager.getDraft(currentDocId);
-    if (doc) {
-      currentContent = doc.content;
+    // Use the returned document to update content
+    if (updatedDoc) {
+      currentContent = updatedDoc.content;
       markdownEditor.value = currentContent;
       renderPreview();
     }
