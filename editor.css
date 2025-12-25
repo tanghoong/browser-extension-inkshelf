@@ -97,8 +97,9 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--border-color);
+  height: 56px;
 }
 
 .sidebar-header h2 {
@@ -106,6 +107,47 @@ body {
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+}
+
+.sidebar-toggle-btn {
+  width: 28px;
+  height: 28px;
+  padding: 6px;
+  border: none;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.sidebar-toggle-btn:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.sidebar-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+.sidebar-toggle-btn svg {
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.sidebar.collapsed .sidebar-toggle-btn svg {
+  transform: rotate(180deg);
+}
+
+.sidebar-right .sidebar-toggle-btn svg {
+  transform: rotate(180deg);
+}
+
+.sidebar-right.collapsed .sidebar-toggle-btn svg {
+  transform: rotate(0deg);
 }
 
 .sidebar-content {
@@ -429,6 +471,7 @@ body {
   background: var(--bg-primary);
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
+  height: 56px;
 }
 
 .header-left {
@@ -897,6 +940,47 @@ body {
   font-size: 12px;
   color: var(--text-secondary);
   flex-shrink: 0;
+  height: 36px;
+}
+
+.status-left {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.status-right {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.status-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--button-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.2s;
+}
+
+.status-toggle:hover {
+  background: var(--button-hover);
+  color: var(--text-primary);
+}
+
+.status-toggle svg {
+  flex-shrink: 0;
+}
+
+.status-toggle.active {
+  color: var(--link-color);
+  border-color: var(--link-color);
 }
 
 /* Drop Zone */

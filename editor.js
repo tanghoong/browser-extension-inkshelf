@@ -8,6 +8,9 @@ let currentUrl = '';
 let viewMode = 'preview'; // 'preview', 'edit', 'split'
 let savedDocuments = [];
 let isScrollSyncing = false; // Prevent scroll feedback loop
+let hasUnsavedChanges = false; // Track unsaved changes
+let wordWrapEnabled = true; // Word wrap state
+let autoSaveEnabled = true; // Auto-save state
 
 // DOM elements
 const previewPanel = document.getElementById('previewPanel');
@@ -39,6 +42,12 @@ const documentList = document.getElementById('documentList');
 const sidebarRight = document.getElementById('sidebarRight');
 const sidebarRightToggle = document.getElementById('sidebarRightToggle');
 const sidebarRightToggleFloat = document.getElementById('sidebarRightToggleFloat');
+const wordWrapToggle = document.getElementById('wordWrapToggle');
+const wordWrapLabel = document.getElementById('wordWrapLabel');
+const themeToggle = document.getElementById('themeToggle');
+const themeLabel = document.getElementById('themeLabel');
+const autoSaveToggle = document.getElementById('autoSaveToggle');
+const autoSaveLabel = document.getElementById('autoSaveLabel');
 
 // Initialize editor
 document.addEventListener('DOMContentLoaded', () => {
@@ -46,6 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
   applySettings();
   setupEventListeners();
   setupDragAndDrop();
+  initializeWordWrap();
+  initializeAutoSave();
+  updateThemeLabel();
   
   // Configure marked.js
   if (typeof marked !== 'undefined') {
@@ -95,6 +107,10 @@ async function initializeEditor(data) {
   // Set editor content
   markdownEditor.value = currentContent;
   
+  // Reset unsaved changes flag
+  hasUnsavedChanges = false;
+  updateSaveButtonVisibility();
+  
   // Render preview
   renderPreview();
   
@@ -127,6 +143,24 @@ function setupEventListeners() {
   // Right Sidebar
   sidebarRightToggle.addEventListener('click', toggleRightSidebar);
   sidebarRightToggleFloat.addEventListener('click', toggleRightSidebar);
+  
+  // Word wrap toggle
+  if (wordWrapToggle) {
+    wordWrapToggle.addEventListener('click', toggleWordWrap);
+  }
+  
+  // Theme toggle
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      toggleTheme();
+      updateThemeLabel();
+    });
+  }
+  
+  // Auto-save toggle
+  if (autoSaveToggle) {
+    autoSaveToggle.addEventListener('click', toggleAutoSave);
+  }
   
   // Document actions
   saveBtn.addEventListener('click', saveDocument);
@@ -415,15 +449,21 @@ function renderPreview() {
  * Handle content change in editor
  */
 async function handleContentChange() {
-  currentContent = markdownEditor.value;
+  const newContent = markdownEditor.value;
+  
+  // Track if content has changed
+  if (newContent !== currentContent) {
+    hasUnsavedChanges = true;
+    updateSaveButtonVisibility();
+  }
+  
+  currentContent = newContent;
   
   // Save to session storage
   storageManager.saveToSession(currentDocId, currentContent);
   
   // Check if auto-save is enabled
-  const autoSave = localStorage.getItem('inkshelf-autosave') !== 'false';
-  
-  if (autoSave) {
+  if (autoSaveEnabled) {
     // Debounced save to IndexedDB
     clearTimeout(window.saveTimeout);
     window.saveTimeout = setTimeout(async () => {
@@ -1053,6 +1093,10 @@ async function saveDocument() {
     mode: 'saved'
   });
   
+  // Clear unsaved changes flag
+  hasUnsavedChanges = false;
+  updateSaveButtonVisibility();
+  
   // Visual feedback
   const originalText = saveBtn.textContent;
   saveBtn.textContent = 'Saved!';
@@ -1094,4 +1138,114 @@ async function deleteDocument() {
   
   // Switch to edit mode
   setViewMode('edit');
+}
+
+/**
+ * Initialize word wrap settings
+ */
+function initializeWordWrap() {
+  // Load saved word wrap preference
+  const savedWordWrap = localStorage.getItem('inkshelf-wordwrap');
+  wordWrapEnabled = savedWordWrap !== 'false'; // default to true
+  
+  applyWordWrap();
+}
+
+/**
+ * Toggle word wrap
+ */
+function toggleWordWrap() {
+  wordWrapEnabled = !wordWrapEnabled;
+  localStorage.setItem('inkshelf-wordwrap', wordWrapEnabled.toString());
+  applyWordWrap();
+}
+
+/**
+ * Apply word wrap setting to editor
+ */
+function applyWordWrap() {
+  if (markdownEditor) {
+    markdownEditor.style.whiteSpace = wordWrapEnabled ? 'pre-wrap' : 'pre';
+    markdownEditor.style.overflowX = wordWrapEnabled ? 'hidden' : 'auto';
+  }
+  
+  if (wordWrapToggle && wordWrapLabel) {
+    wordWrapLabel.textContent = `Word Wrap: ${wordWrapEnabled ? 'On' : 'Off'}`;
+    if (wordWrapEnabled) {
+      wordWrapToggle.classList.add('active');
+    } else {
+      wordWrapToggle.classList.remove('active');
+    }
+  }
+}
+
+/**
+ * Update Save button visibility based on document state and unsaved changes
+ */
+function updateSaveButtonVisibility() {
+  if (saveBtn) {
+    // Show save button only if there's a document loaded and there are unsaved changes
+    if (currentDocId && hasUnsavedChanges) {
+      saveBtn.style.display = 'block';
+    } else {
+      saveBtn.style.display = 'none';
+    }
+  }
+}
+
+/**
+ * Update theme label to reflect current theme
+ */
+function updateThemeLabel() {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const themeName = currentTheme === 'dark' ? 'Dark' : 'Light';
+  
+  if (themeLabel) {
+    themeLabel.textContent = `Theme: ${themeName}`;
+  }
+  
+  if (themeToggle) {
+    if (currentTheme === 'dark') {
+      themeToggle.classList.add('active');
+    } else {
+      themeToggle.classList.remove('active');
+    }
+  }
+}
+
+/**
+ * Initialize auto-save settings
+ */
+function initializeAutoSave() {
+  // Load saved auto-save preference
+  const savedAutoSave = localStorage.getItem('inkshelf-autosave');
+  autoSaveEnabled = savedAutoSave !== 'false'; // default to true
+  
+  updateAutoSaveLabel();
+}
+
+/**
+ * Toggle auto-save
+ */
+function toggleAutoSave() {
+  autoSaveEnabled = !autoSaveEnabled;
+  localStorage.setItem('inkshelf-autosave', autoSaveEnabled.toString());
+  updateAutoSaveLabel();
+}
+
+/**
+ * Update auto-save label to reflect current state
+ */
+function updateAutoSaveLabel() {
+  if (autoSaveLabel) {
+    autoSaveLabel.textContent = `Auto-Save: ${autoSaveEnabled ? 'On' : 'Off'}`;
+  }
+  
+  if (autoSaveToggle) {
+    if (autoSaveEnabled) {
+      autoSaveToggle.classList.add('active');
+    } else {
+      autoSaveToggle.classList.remove('active');
+    }
+  }
 }

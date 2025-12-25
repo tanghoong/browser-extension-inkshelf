@@ -1,17 +1,23 @@
-// Popup script for InkShelf
+// Popup script for Tulis.my
 
 document.addEventListener('DOMContentLoaded', () => {
   const captureClean = document.getElementById('captureClean');
   const openDashboard = document.getElementById('openDashboard');
+  const openSettings = document.getElementById('openSettings');
   
   // Capture clean article
   captureClean.addEventListener('click', () => {
     captureCurrentPage('clean');
   });
   
-  // Open InkShelf dashboard
+  // Open Tulis.my dashboard
   openDashboard.addEventListener('click', () => {
     openDashboardPage();
+  });
+  
+  // Open settings page
+  openSettings.addEventListener('click', () => {
+    openSettingsPage();
   });
 });
 
@@ -48,7 +54,7 @@ async function captureCurrentPage(mode) {
 }
 
 /**
- * Open InkShelf dashboard (editor without content)
+ * Open Tulis.my dashboard (editor without content)
  */
 async function openDashboardPage() {
   try {
@@ -57,5 +63,18 @@ async function openDashboardPage() {
     window.close();
   } catch (error) {
     console.error('Failed to open dashboard:', error);
+  }
+}
+
+/**
+ * Open settings page
+ */
+async function openSettingsPage() {
+  try {
+    const settingsUrl = chrome.runtime.getURL('settings.html');
+    await chrome.tabs.create({ url: settingsUrl, active: true });
+    window.close();
+  } catch (error) {
+    console.error('Failed to open settings:', error);
   }
 }
