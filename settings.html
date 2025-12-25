@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InkShelf Settings</title>
+  <link rel="stylesheet" href="editor.css">
+  <style>
+    .settings-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .settings-header {
+      padding: 24px 0;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 24px;
+    }
+
+    .settings-header h1 {
+      font-size: 24px;
+      margin: 0 0 8px 0;
+      color: var(--text-primary);
+    }
+
+    .settings-header p {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .settings-section {
+      margin-bottom: 32px;
+    }
+
+    .settings-section h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 16px 0;
+    }
+
+    .setting-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .setting-item:last-child {
+      border-bottom: none;
+    }
+
+    .setting-info {
+      flex: 1;
+    }
+
+    .setting-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .setting-description {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .setting-control {
+      flex-shrink: 0;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 48px;
+      height: 24px;
+      background: var(--border-color);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .toggle-switch.active {
+      background: #0066cc;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.3s;
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(24px);
+    }
+
+    .select-control {
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .back-button {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      padding: 8px 16px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .back-button:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .danger-zone {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 2px solid var(--border-color);
+    }
+
+    .danger-zone h2 {
+      color: #dc3545;
+    }
+
+    .danger-button {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid #dc3545;
+      border-radius: 4px;
+      color: #dc3545;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .danger-button:hover {
+      background: #dc3545;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <button class="back-button" id="backButton">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="19" y1="12" x2="5" y2="12"></line>
+      <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    Back to Editor
+  </button>
+
+  <div class="settings-container">
+    <div class="settings-header">
+      <h1>Settings</h1>
+      <p>Customize your InkShelf experience</p>
+    </div>
+
+    <!-- Appearance Settings -->
+    <div class="settings-section">
+      <h2>Appearance</h2>
+      
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Theme</div>
+          <div class="setting-description">Choose between light and dark mode</div>
+        </div>
+        <div class="setting-control">
+          <div id="themeToggle" class="toggle-switch" title="Toggle theme"></div>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Font Size</div>
+          <div class="setting-description">Adjust editor and preview font size</div>
+        </div>
+        <div class="setting-control">
+          <select class="select-control" id="fontSizeSelect">
+            <option value="small">Small</option>
+            <option value="medium" selected>Medium</option>
+            <option value="large">Large</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editor Settings -->
+    <div class="settings-section">
+      <h2>Editor</h2>
+      
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Auto-save</div>
+          <div class="setting-description">Automatically save documents while editing</div>
+        </div>
+        <div class="setting-control">
+          <div id="autoSaveToggle" class="toggle-switch active"></div>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Word Count</div>
+          <div class="setting-description">Show word count in status bar</div>
+        </div>
+        <div class="setting-control">
+          <div id="wordCountToggle" class="toggle-switch active"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sharing Settings -->
+    <div class="settings-section">
+      <h2>Sharing & Export</h2>
+      
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Third-Party Platforms</div>
+          <div class="setting-description">Configure platforms for sharing content</div>
+        </div>
+        <div class="setting-control">
+          <button class="btn btn-secondary btn-small" id="configurePlatformsBtn">Configure</button>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Default Export Format</div>
+          <div class="setting-description">Choose default format for downloads</div>
+        </div>
+        <div class="setting-control">
+          <select class="select-control" id="exportFormatSelect">
+            <option value="markdown" selected>Markdown (.md)</option>
+            <option value="html">HTML (.html)</option>
+            <option value="txt">Plain Text (.txt)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="danger-zone">
+      <h2>Danger Zone</h2>
+      
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Delete All Documents</div>
+          <div class="setting-description">Permanently delete all saved documents</div>
+        </div>
+        <div class="setting-control">
+          <button class="danger-button" id="deleteAllBtn">Delete All</button>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Reset Settings</div>
+          <div class="setting-description">Reset all settings to default values</div>
+        </div>
+        <div class="setting-control">
+          <button class="danger-button" id="resetSettingsBtn">Reset</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>

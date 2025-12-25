@@ -15,19 +15,22 @@ const editPanel = document.getElementById('editPanel');
 const mainContent = document.getElementById('mainContent');
 const previewContent = document.getElementById('previewContent');
 const markdownEditor = document.getElementById('markdownEditor');
-const previewModeBtn = document.getElementById('previewModeBtn');
-const editModeBtn = document.getElementById('editModeBtn');
-const splitModeBtn = document.getElementById('splitModeBtn');
-const downloadBtn = document.getElementById('downloadBtn');
+const viewModeToggle = document.getElementById('viewModeToggle');
+const viewModeLabel = document.getElementById('viewModeLabel');
+const downloadBtn = document.getElementById('downloadMarkdownBtn');
 const copyBtn = document.getElementById('copyBtn');
+const shareBtn = document.getElementById('shareBtn');
+const shareDropdownMenu = document.getElementById('shareDropdownMenu');
+const shareThirdPartyBtn = document.getElementById('shareThirdPartyBtn');
 const saveBtn = document.getElementById('saveBtn');
-const deleteBtn = document.getElementById('deleteBtn');
 const docTitle = document.getElementById('docTitle');
 const sourceUrl = document.getElementById('sourceUrl');
 const statusText = document.getElementById('statusText');
 const wordCount = document.getElementById('wordCount');
 const dropZone = document.getElementById('dropZone');
-const themeToggle = document.getElementById('themeToggle');
+const optionsBtn = document.getElementById('optionsBtn');
+const optionsDropdownMenu = document.getElementById('optionsDropdownMenu');
+const settingsMenuItem = document.getElementById('settingsMenuItem');
 const sidebar = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebarToggle');
 const sidebarToggleFloat = document.getElementById('sidebarToggleFloat');
@@ -40,6 +43,7 @@ const sidebarRightToggleFloat = document.getElementById('sidebarRightToggleFloat
 // Initialize editor
 document.addEventListener('DOMContentLoaded', () => {
   initializeTheme();
+  applySettings();
   setupEventListeners();
   setupDragAndDrop();
   
@@ -108,13 +112,12 @@ async function initializeEditor(data) {
  * Setup event listeners
  */
 function setupEventListeners() {
-  // Theme toggle
-  themeToggle.addEventListener('click', toggleTheme);
+  // Options dropdown
+  optionsBtn.addEventListener('click', toggleOptionsDropdown);
+  settingsMenuItem.addEventListener('click', openSettings);
   
-  // View mode toggles
-  previewModeBtn.addEventListener('click', () => setViewMode('preview'));
-  editModeBtn.addEventListener('click', () => setViewMode('edit'));
-  splitModeBtn.addEventListener('click', () => setViewMode('split'));
+  // View mode toggle - cycle through modes
+  viewModeToggle.addEventListener('click', toggleViewMode);
   
   // Sidebar
   sidebarToggle.addEventListener('click', toggleSidebar);
@@ -129,7 +132,22 @@ function setupEventListeners() {
   saveBtn.addEventListener('click', saveDocument);
   downloadBtn.addEventListener('click', downloadMarkdown);
   copyBtn.addEventListener('click', copyMarkdown);
-  deleteBtn.addEventListener('click', deleteDocument);
+  
+  // Share dropdown
+  shareBtn.addEventListener('click', toggleShareDropdown);
+  shareThirdPartyBtn.addEventListener('click', () => {
+    alert('Third-party sharing will be configured in Settings. This feature is coming soon!');
+  });
+  
+  // Close share dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.share-dropdown')) {
+      shareDropdownMenu.classList.remove('show');
+    }
+    if (!e.target.closest('.options-dropdown')) {
+      optionsDropdownMenu.classList.remove('show');
+    }
+  });
   
   // Auto-save on content change
   markdownEditor.addEventListener('input', handleContentChange);
@@ -186,6 +204,23 @@ function setupEventListeners() {
   
   // Load saved documents
   loadSavedDocuments();
+  
+  // Listen for settings changes from other tabs
+  window.addEventListener('storage', (e) => {
+    if (e.key && e.key.startsWith('inkshelf-')) {
+      applySettings();
+    }
+  });
+}
+
+/**
+ * Toggle view mode (cycle through preview -> edit -> split -> preview)
+ */
+function toggleViewMode() {
+  const modes = ['preview', 'edit', 'split'];
+  const currentIndex = modes.indexOf(viewMode);
+  const nextIndex = (currentIndex + 1) % modes.length;
+  setViewMode(modes[nextIndex]);
 }
 
 /**
@@ -194,33 +229,83 @@ function setupEventListeners() {
 function setViewMode(mode) {
   viewMode = mode;
   
-  // Update button states
-  previewModeBtn.classList.remove('active');
-  editModeBtn.classList.remove('active');
-  splitModeBtn.classList.remove('active');
+  // Update button icon and label
+  const icons = {
+    preview: `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+      </svg>
+    `,
+    edit: `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+      </svg>
+    `,
+    split: `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="12" y1="3" x2="12" y2="21"></line>
+      </svg>
+    `
+  };
+  
+  const labels = {
+    preview: 'Preview',
+    edit: 'Edit',
+    split: 'Split'
+  };
+  
+  viewModeToggle.innerHTML = icons[mode] + '<span id="viewModeLabel">' + labels[mode] + '</span>';
+  viewModeToggle.title = `Current: ${labels[mode]} (click to cycle)`;
   
   if (mode === 'preview') {
-    previewModeBtn.classList.add('active');
     mainContent.classList.remove('split-view');
     previewPanel.style.display = 'block';
     editPanel.style.display = 'none';
     statusText.textContent = 'Preview Mode';
     renderPreview();
   } else if (mode === 'edit') {
-    editModeBtn.classList.add('active');
     mainContent.classList.remove('split-view');
     previewPanel.style.display = 'none';
     editPanel.style.display = 'block';
     statusText.textContent = 'Edit Mode';
     markdownEditor.focus();
   } else if (mode === 'split') {
-    splitModeBtn.classList.add('active');
     mainContent.classList.add('split-view');
     editPanel.style.display = 'block';
     previewPanel.style.display = 'block';
     statusText.textContent = 'Split View';
     renderPreview();
   }
+}
+
+/**
+ * Toggle share dropdown menu
+ */
+function toggleShareDropdown(e) {
+  e.stopPropagation();
+  shareDropdownMenu.classList.toggle('show');
+}
+
+/**
+ * Toggle options dropdown menu
+ */
+function toggleOptionsDropdown(e) {
+  e.stopPropagation();
+  optionsDropdownMenu.classList.toggle('show');
+}
+
+/**
+ * Open settings page
+ */
+function openSettings() {
+  chrome.tabs.create({
+    url: chrome.runtime.getURL('settings.html'),
+    active: true
+  });
+  optionsDropdownMenu.classList.remove('show');
 }
 
 /**
@@ -335,16 +420,21 @@ async function handleContentChange() {
   // Save to session storage
   storageManager.saveToSession(currentDocId, currentContent);
   
-  // Debounced save to IndexedDB
-  clearTimeout(window.saveTimeout);
-  window.saveTimeout = setTimeout(async () => {
-    await storageManager.saveDraft({
-      docId: currentDocId,
-      content: currentContent,
-      title: currentTitle,
-      url: currentUrl
-    });
-  }, 1000);
+  // Check if auto-save is enabled
+  const autoSave = localStorage.getItem('inkshelf-autosave') !== 'false';
+  
+  if (autoSave) {
+    // Debounced save to IndexedDB
+    clearTimeout(window.saveTimeout);
+    window.saveTimeout = setTimeout(async () => {
+      await storageManager.saveDraft({
+        docId: currentDocId,
+        content: currentContent,
+        title: currentTitle,
+        url: currentUrl
+      });
+    }, 1000);
+  }
   
   updateWordCount();
 }
@@ -421,6 +511,44 @@ function initializeTheme() {
       document.documentElement.setAttribute('data-theme', theme);
     }
   });
+}
+
+/**
+ * Apply settings from localStorage
+ */
+function applySettings() {
+  // Apply font size
+  const fontSize = localStorage.getItem('inkshelf-fontsize') || 'medium';
+  applyFontSize(fontSize);
+  
+  // Apply word count visibility
+  const showWordCount = localStorage.getItem('inkshelf-wordcount') !== 'false';
+  if (wordCount) {
+    wordCount.style.display = showWordCount ? 'block' : 'none';
+  }
+}
+
+/**
+ * Apply font size to editor and preview
+ */
+function applyFontSize(size) {
+  const sizes = {
+    small: { editor: '13px', preview: '14px', lineHeight: '1.5' },
+    medium: { editor: '14px', preview: '15px', lineHeight: '1.6' },
+    large: { editor: '16px', preview: '17px', lineHeight: '1.7' }
+  };
+  
+  const config = sizes[size] || sizes.medium;
+  
+  if (markdownEditor) {
+    markdownEditor.style.fontSize = config.editor;
+    markdownEditor.style.lineHeight = config.lineHeight;
+  }
+  
+  if (previewContent) {
+    previewContent.style.fontSize = config.preview;
+    previewContent.style.lineHeight = config.lineHeight;
+  }
 }
 
 /**
@@ -857,7 +985,6 @@ async function loadDocument(docId) {
   const doc = await storageManager.getDraft(docId);
   if (doc) {
     initializeEditor(doc);
-    deleteBtn.style.display = 'inline-block';
     renderDocumentList();
   }
 }
@@ -895,7 +1022,6 @@ async function deleteDocumentFromList(docId) {
     docTitle.textContent = currentTitle;
     sourceUrl.textContent = '';
     renderPreview();
-    deleteBtn.style.display = 'none';
   }
   
   await loadSavedDocuments();
@@ -938,7 +1064,6 @@ async function saveDocument() {
   }, 2000);
   
   await loadSavedDocuments();
-  deleteBtn.style.display = 'inline-block';
 }
 
 /**
@@ -966,9 +1091,6 @@ async function deleteDocument() {
   sourceUrl.textContent = '';
   markdownEditor.value = '';
   renderPreview();
-  
-  // Hide delete button for new doc
-  deleteBtn.style.display = 'none';
   
   // Switch to edit mode
   setViewMode('edit');

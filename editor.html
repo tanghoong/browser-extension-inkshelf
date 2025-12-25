@@ -44,28 +44,72 @@
         <span class="url" id="sourceUrl"></span>
       </div>
       <div class="header-right">
-        <div class="view-mode-toggle">
-          <button id="previewModeBtn" class="btn btn-mode active" title="Preview only">Preview</button>
-          <button id="editModeBtn" class="btn btn-mode" title="Edit only">Edit</button>
-          <button id="splitModeBtn" class="btn btn-mode" title="Split view">Split</button>
-        </div>
-        <button id="themeToggle" class="btn btn-icon" title="Toggle theme">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="5"></circle>
-            <line x1="12" y1="1" x2="12" y2="3"></line>
-            <line x1="12" y1="21" x2="12" y2="23"></line>
-            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-            <line x1="1" y1="12" x2="3" y2="12"></line>
-            <line x1="21" y1="12" x2="23" y2="12"></line>
-            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        <button id="viewModeToggle" class="btn btn-secondary" title="Toggle view mode">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
           </svg>
+          <span id="viewModeLabel">Preview</span>
         </button>
         <button id="saveBtn" class="btn btn-primary">Save</button>
-        <button id="downloadBtn" class="btn btn-secondary">Download</button>
-        <button id="copyBtn" class="btn btn-secondary">Copy</button>
-        <button id="deleteBtn" class="btn btn-danger" style="display: none;">Delete</button>
+        <div class="options-dropdown">
+          <button id="optionsBtn" class="btn btn-icon" title="Options">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="1"></circle>
+              <circle cx="12" cy="5" r="1"></circle>
+              <circle cx="12" cy="19" r="1"></circle>
+            </svg>
+          </button>
+          <div class="options-dropdown-menu" id="optionsDropdownMenu">
+            <button class="options-menu-item" id="settingsMenuItem">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 1v6m0 6v6m5.657-13.657l-4.243 4.243m-2.828 2.828l-4.243 4.243m16.97 1.414l-5.656-5.656m-2.828-2.828l-5.656-5.656m13.85 13.85l-5.656-5.656m-2.828-2.828l-5.656-5.656"></path>
+              </svg>
+              <span>Settings</span>
+            </button>
+          </div>
+        </div>
+        <div class="button-group">
+          <button id="copyBtn" class="btn btn-secondary" title="Copy markdown">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Copy
+          </button>
+          <div class="share-dropdown">
+            <button id="shareBtn" class="btn btn-secondary" title="Share options">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="18" cy="5" r="3"></circle>
+                <circle cx="6" cy="12" r="3"></circle>
+                <circle cx="18" cy="19" r="3"></circle>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+              </svg>
+              Share
+            </button>
+            <div class="share-dropdown-menu" id="shareDropdownMenu">
+              <button class="share-menu-item" id="downloadMarkdownBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Download Markdown</span>
+              </button>
+              <button class="share-menu-item" id="shareThirdPartyBtn" disabled>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+                <span>Post to Platform</span>
+                <span class="coming-soon">Settings</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
     
