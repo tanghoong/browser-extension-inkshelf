@@ -1,4 +1,4 @@
-// Popup script for Tulis.my
+// Popup script for Tulis.app
 
 document.addEventListener('DOMContentLoaded', () => {
   const captureClean = document.getElementById('captureClean');
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     captureCurrentPage('clean');
   });
   
-  // Open Tulis.my dashboard
+  // Open Tulis.app dashboard
   openDashboard.addEventListener('click', () => {
     openDashboardPage();
   });
@@ -54,7 +54,7 @@ async function captureCurrentPage(mode) {
 }
 
 /**
- * Open Tulis.my dashboard (editor without content)
+ * Open Tulis.app dashboard (editor without content)
  */
 async function openDashboardPage() {
   try {

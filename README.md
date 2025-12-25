@@ -1,8 +1,8 @@
 # InkShelf
 
-> A lightweight, open‑source Chrome extension to capture web pages and turn them into clean, editable Markdown drafts.
+> A lightweight, open‑source Chrome extension to capture web pages and turn them into clean, editable Markdown drafts — now with **Tulis.app** cloud sync.
 
-InkShelf is designed as a **personal knowledge capture inbox**, not a full writing or note‑taking app. It helps you quickly move content from the web into Markdown, preview it, optionally edit it, and then export it to your preferred tools.
+InkShelf is designed as a **personal knowledge capture inbox** that bridges web content to your Markdown workflow. Capture, organize, tag, and sync your articles across devices with optional **Tulis.app** cloud integration.
 
 ---
 
@@ -16,21 +16,34 @@ Copy‑pasting from the web is messy:
 
 InkShelf solves this by acting as a **middle layer**:
 
-> **Web Page → Clean Markdown → Draft (Preview / Edit) → Export**
+> **Web Page → Clean Markdown → Organize (Groups/Tags) → Draft (Preview/Edit) → Export or Sync**
 
-No accounts. No cloud sync. No lock‑in.
+**Offline-first. Cloud-optional. Always in control.**
 
 ---
 
 ## Key Features
 
+### Core Features
 * 🔹 **One‑click Web → Markdown capture**
 * 🔹 **Preview‑first workflow** (read before you edit)
 * 🔹 **Built‑in Markdown editor** (minimal, distraction‑free)
 * 🔹 **Drag & drop `.md` files into the browser**
-* 🔹 **Unsaved draft memory per tab**
 * 🔹 **Multiple tabs supported without overwriting drafts**
-* 🔹 **Offline‑friendly**
+* 🔹 **Offline‑friendly** — works without internet
+
+### Organization Features (v2.0)
+* 📁 **Document Groups** — Organize articles into folders/collections
+* 🏷️ **Custom Tags** — Add multiple tags to any document
+* ⭐ **Starred Documents** — Quick access to favorites
+* 🔍 **Filter & Search** — Find documents by group, tag, or text
+
+### Cloud Features (v2.0) — Powered by Tulis.app
+* ☁️ **Cloud Sync** — Sync documents across devices
+* 👤 **Tulis.app Account** — Login to access cloud features
+* 📤 **Publish to Cloud** — Share articles publicly or privately
+* 💾 **Offline Backup** — Export/import all documents as ZIP
+* 🔄 **Offline/Online Sync** — Changes queue when offline, sync when online
 
 ---
 
@@ -39,31 +52,86 @@ No accounts. No cloud sync. No lock‑in.
 ### 1. Capture a Web Page
 
 1. Open any web page
-2. Click the InkShelf extension icon (or shortcut)
-3. InkShelf extracts the main content and converts it to Markdown
-4. A new InkShelf editor tab opens
+2. Click the InkShelf extension icon (or press `Ctrl+Shift+M`)
+3. Select a **Group** for organization (optional)
+4. InkShelf extracts content and converts to Markdown
+5. A new InkShelf editor tab opens
 
 Default mode: **Preview (read‑only)**
 
 ---
 
-### 2. Preview → Edit (Optional)
+### 2. Organize with Groups & Tags
+
+**Groups** (Folders):
+* Create groups like "Research", "Tech Articles", "Reading List"
+* Assign documents to groups during capture or later
+* Collapse/expand groups in the sidebar
+* Drag documents between groups
+
+**Tags**:
+* Add multiple tags to any document
+* Tags are stored in YAML frontmatter for compatibility
+* Filter documents by clicking tags
+* Auto-suggested tags based on content
+
+---
+
+### 3. Preview → Edit (Optional)
 
 * Preview mode lets you quickly review the captured content
 * Click **Edit** to switch to Markdown editing
-* Unsaved changes are remembered until the tab is closed
+* Click **Split** for side-by-side preview and editing
+* Unsaved changes auto-save (configurable)
 
 ---
 
-### 3. Drag & Drop Markdown Files
+### 4. Cloud Sync with Tulis.app
+
+**Login** (Right Sidebar):
+1. Click the user icon in the right sidebar
+2. Login or create a Tulis.app account
+3. Your documents will sync automatically
+
+**Sync Behavior**:
+* **Online**: Changes sync in real-time
+* **Offline**: Changes queue locally, sync when online
+* **Conflict Resolution**: Last-write-wins with notification
+
+**Publish**:
+* Publish articles to your Tulis.app profile
+* Choose public or private visibility
+* Manage published articles from the extension
+
+---
+
+### 5. Backup & Restore
+
+**Export All Documents**:
+1. Go to Settings → Backup & Restore
+2. Click "Export All Documents"
+3. Downloads a `.zip` file containing:
+   * All `.md` files with frontmatter
+   * `metadata.json` with groups, tags, settings
+   * `manifest.json` with backup info
+
+**Import Backup**:
+1. Go to Settings → Backup & Restore
+2. Click "Import Backup"
+3. Select a previously exported `.zip` file
+4. Choose merge or replace strategy
+
+---
+
+### 6. Drag & Drop Markdown Files
 
 * Drag a `.md` file into the browser window
 * InkShelf automatically opens it in a new editor tab
-* Preview mode is enabled by default
+* Frontmatter (groups/tags) is preserved
 
 ---
 
-## Capture Modes (MVP)
+## Capture Modes
 
 | Mode           | Description                       |
 | -------------- | --------------------------------- |
@@ -75,91 +143,217 @@ Default mode: **Preview (read‑only)**
 
 ---
 
-## Draft & Tab Behavior (Important)
+## Document Schema
 
-InkShelf is built to be safe and predictable.
+Each document includes:
 
-* Each document has a unique **doc_id**
-* Each editor tab is isolated
-* Multiple Markdown drafts can be open at the same time
-* Drafts are **never overwritten by another tab**
+```yaml
+---
+title: "Article Title"
+date: 2025-12-25
+source: https://example.com/article
+group: "Research"
+tags:
+  - web-capture
+  - technology
+  - example.com
+---
 
-### Draft Lifecycle
+# Article content in Markdown...
+```
 
-* Open tab → draft is created
-* Edit → draft is saved in memory
-* Download / Copy → draft remains
-* Close tab → draft is discarded
-
-> InkShelf does not persist drafts after the tab is closed.
+**Fields**:
+| Field | Type | Description |
+|-------|------|-------------|
+| `docId` | string | Unique identifier |
+| `title` | string | Document title |
+| `content` | string | Markdown content |
+| `url` | string | Source URL |
+| `groupId` | string | Group identifier |
+| `groupName` | string | Group display name |
+| `tags` | string[] | User-defined tags |
+| `starred` | boolean | Favorite flag |
+| `timestamp` | number | Creation time |
+| `updatedAt` | number | Last update time |
+| `syncedAt` | number | Last sync time (cloud) |
+| `cloudId` | string | Cloud document ID |
+| `status` | string | draft / saved / published |
 
 ---
 
-## Storage Design
+## UI Structure
 
-InkShelf uses browser‑native storage only:
+### Left Sidebar — Document Management
+```
+┌─────────────────────────────┐
+│ 🔍 Search documents...      │
+├─────────────────────────────┤
+│ + New Document              │
+│ + New Group                 │
+├─────────────────────────────┤
+│ 📁 All Documents (15)       │
+│ ⭐ Starred (3)              │
+├─────────────────────────────┤
+│ ▼ 📁 Research (5)           │
+│   ├─ Article One            │
+│   ├─ Article Two            │
+│   └─ Article Three          │
+│ ▶ 📁 Tech Articles (4)      │
+│ ▶ 📁 Reading List (3)       │
+├─────────────────────────────┤
+│ 🏷️ Tags                     │
+│   javascript (8)            │
+│   tutorial (5)              │
+│   web-capture (15)          │
+└─────────────────────────────┘
+```
 
-* **sessionStorage** — unsaved content for the active tab
-* **IndexedDB** — managing multiple drafts within the extension session
+### Main Content — Editor/Preview
+```
+┌─────────────────────────────────────────────┐
+│ [Title] _________________ [Preview|Edit|Split]│
+│ Source: https://example.com                  │
+│ Group: [Research ▼]  Tags: [+ Add tag]       │
+├─────────────────────────────────────────────┤
+│                                             │
+│           Preview / Edit Area               │
+│                                             │
+├─────────────────────────────────────────────┤
+│ Status: Saved ✓  Words: 1,234  [⚙️ Options] │
+└─────────────────────────────────────────────┘
+```
 
-No external servers. No tracking.
+### Right Sidebar — Tulis.app Account
+```
+┌─────────────────────────┐
+│ 👤 Tulis.app            │
+├─────────────────────────┤
+│ [Not logged in]         │
+│                         │
+│ [Login] [Sign Up]       │
+├─────────────────────────┤
+│ — OR (when logged in) — │
+├─────────────────────────┤
+│ 👤 user@email.com       │
+│ ☁️ Sync: Active         │
+│ Last sync: 2 min ago    │
+├─────────────────────────┤
+│ [🔄 Sync Now]           │
+│ [📤 Publish Article]    │
+│ [📋 My Published]       │
+├─────────────────────────┤
+│ [⚙️ Account Settings]   │
+│ [🚪 Logout]             │
+└─────────────────────────┘
+```
 
 ---
 
-## What InkShelf Is NOT
+## Storage Architecture
 
-InkShelf intentionally avoids feature creep.
+### Local Storage (Browser)
 
-* ❌ No cloud sync
-* ❌ No user accounts
-* ❌ No AI rewriting or summarization
-* ❌ No rich‑text editor
-* ❌ No cross‑device sync
+| Storage | Purpose | Data |
+|---------|---------|------|
+| **IndexedDB** | Persistent documents | All drafts with full metadata |
+| **sessionStorage** | Current tab state | Unsaved edits for active tab |
+| **localStorage** | Settings & auth | Theme, preferences, auth tokens |
 
-It is meant to work *with* your tools, not replace them.
+### Cloud Storage (Tulis.app)
 
----
+| Endpoint | Purpose |
+|----------|---------|
+| `/api/auth/*` | Authentication |
+| `/api/documents/*` | Document CRUD & sync |
+| `/api/groups/*` | Group management |
+| `/api/sync/*` | Sync operations |
+| `/api/publish/*` | Publishing |
 
-## Ideal Use Cases
-
-* Developers collecting technical references
-* Writers capturing research material
-* Students saving articles for later整理
-* Markdown users who prefer clean inputs
-
-Perfect companion for:
-
-* Obsidian
-* Hugo / static sites
-* GitHub Markdown
-* Any Markdown‑based workflow
+See [BACKEND_API.md](BACKEND_API.md) for full API specification.
 
 ---
 
-## Screenshots / Demo
+## Data Migration
 
-> *(GIF placeholders)*
+When updating from v1.x to v2.x, the extension automatically migrates existing documents:
 
-* Capture web page → Markdown
-* Preview vs Edit mode
-* Drag & drop `.md` file
-* Multiple tabs with different drafts
+### Migration Process
+1. **Detection**: On startup, checks IndexedDB version
+2. **Backup**: Creates automatic backup before migration
+3. **Schema Update**: Adds new fields with defaults:
+   * `groupId` → `"default"`
+   * `groupName` → `"Uncategorized"`
+   * `tags` → extracted from existing frontmatter or `[]`
+   * `syncedAt` → `null`
+   * `cloudId` → `null`
+4. **Index Creation**: Creates new indexes for groups/tags
+5. **Verification**: Validates all documents migrated correctly
+
+### Manual Migration (if needed)
+```javascript
+// Run in browser console on editor.html
+await storageManager.migrateToV2();
+```
+
+### Rollback
+If issues occur, restore from automatic backup:
+1. Go to Settings → Backup & Restore
+2. Click "Restore from Auto-Backup"
+3. Select the pre-migration backup
+
+---
+
+## Offline/Online Sync Strategy
+
+### Sync Queue System
+```
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│   Edit Doc   │ →  │  Sync Queue  │ →  │  Cloud API   │
+│   (Local)    │    │  (IndexedDB) │    │  (Tulis.app) │
+└──────────────┘    └──────────────┘    └──────────────┘
+                           ↓
+                    [Offline? Queue]
+                    [Online? Process]
+```
+
+### Conflict Resolution (Last-Write-Wins)
+1. Local change saved with `updatedAt` timestamp
+2. Cloud has `serverUpdatedAt` timestamp
+3. On sync:
+   * If `local.updatedAt > server.serverUpdatedAt` → Push local
+   * If `server.serverUpdatedAt > local.updatedAt` → Pull server
+   * Notification shown to user about resolution
+
+### Sync States
+| State | Icon | Description |
+|-------|------|-------------|
+| Synced | ✅ | Document matches cloud |
+| Pending | 🔄 | Changes queued for sync |
+| Syncing | ⏳ | Currently syncing |
+| Conflict | ⚠️ | Manual resolution needed |
+| Offline | 📴 | No connection, queued |
+| Error | ❌ | Sync failed, retry later |
 
 ---
 
 ## Tech Stack
 
-* Chrome Extension (Manifest v3)
-* Vanilla JavaScript
-* HTML / CSS only
-* No frameworks
+* **Extension**: Chrome Extension (Manifest v3)
+* **Frontend**: Vanilla JavaScript, HTML, CSS
+* **Local Storage**: IndexedDB, sessionStorage, localStorage
+* **Libraries**: 
+  * marked.js (Markdown rendering)
+  * Readability.js (Content extraction)
+  * JSZip (Backup/restore)
+* **Cloud Backend**: Node.js API (see [BACKEND_API.md](BACKEND_API.md))
 
 ---
 
 ## Installation (Development)
 
 ```bash
-git clone https://github.com/your-org/inkshelf-md-capture.git
+git clone https://github.com/nicholaslwjl/inkshelf-extension.git
+cd inkshelf-extension
 ```
 
 1. Open Chrome
@@ -170,12 +364,73 @@ git clone https://github.com/your-org/inkshelf-md-capture.git
 
 ---
 
-## Roadmap (Post‑MVP)
+## File Structure
 
-* Optional Markdown frontmatter metadata
-* Keyboard shortcuts configuration
-* Export presets (Obsidian / Hugo)
-* Capture presets
+```
+inkshelf-extension/
+├── manifest.json        # Extension manifest
+├── background.js        # Service worker
+├── content.js           # Page content extraction
+├── popup.html/js        # Extension popup
+├── editor.html/js/css   # Main editor interface
+├── settings.html/js     # Settings page
+├── storage.js           # IndexedDB management
+├── sync.js              # Cloud sync module (v2.0)
+├── auth.js              # Authentication module (v2.0)
+├── backup.js            # Backup/restore module (v2.0)
+├── groups.js            # Group management (v2.0)
+├── tags.js              # Tag management (v2.0)
+├── file-handler.js      # .md file drop handling
+├── icons/               # Extension icons
+├── libs/                # Third-party libraries
+│   ├── marked.min.js
+│   ├── Readability.js
+│   └── jszip.min.js     # (v2.0)
+├── README.md            # This file
+├── BACKEND_API.md       # API specification for backend
+├── PROJECT_SUMMARY.md   # Implementation details
+└── TESTING.md           # Test cases
+```
+
+---
+
+## Configuration
+
+### Environment Variables (for development)
+```javascript
+// config.js
+const CONFIG = {
+  API_BASE_URL: 'https://api.tulis.app',  // Production
+  // API_BASE_URL: 'http://localhost:3000', // Development
+  SYNC_INTERVAL: 30000,  // 30 seconds
+  OFFLINE_QUEUE_MAX: 100,
+  AUTO_BACKUP_INTERVAL: 86400000,  // 24 hours
+};
+```
+
+---
+
+## Roadmap
+
+### v2.0 (Current)
+- [x] Document grouping
+- [x] Custom tags with frontmatter
+- [x] Tulis.app authentication
+- [x] Cloud sync
+- [x] Offline backup/restore
+- [x] Data migration from v1.x
+
+### v2.1 (Planned)
+- [ ] Keyboard shortcuts configuration
+- [ ] Export presets (Obsidian / Hugo)
+- [ ] Bulk operations (move, tag, delete)
+- [ ] Search within document content
+
+### v3.0 (Future)
+- [ ] End-to-end encryption
+- [ ] Team/shared collections
+- [ ] Browser sync (Chrome/Firefox/Edge)
+- [ ] Mobile companion app
 
 ---
 
@@ -187,7 +442,7 @@ Contributions are welcome.
 * Create a feature branch
 * Submit a pull request
 
-Please keep the scope minimal and aligned with InkShelf’s philosophy.
+Please keep the scope minimal and aligned with InkShelf's philosophy.
 
 ---
 
@@ -202,5 +457,10 @@ MIT License
 InkShelf is built on one idea:
 
 > **The best tools do one thing well — and stay out of your way.**
+
+Now with optional cloud sync through **Tulis.app**, you get the best of both worlds:
+* **Offline-first**: Everything works without internet
+* **Cloud-optional**: Sync only if you want to
+* **Data ownership**: Export everything anytime
 
 If you like Markdown and value clean inputs, InkShelf is for you.

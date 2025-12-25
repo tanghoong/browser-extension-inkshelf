@@ -141,8 +141,9 @@ function setupEventListeners() {
   newDocBtn.addEventListener('click', createNewDocument);
   
   // Right Sidebar
-  sidebarRightToggle.addEventListener('click', toggleRightSidebar);
-  sidebarRightToggleFloat.addEventListener('click', toggleRightSidebar);
+  if (sidebarRightToggle) sidebarRightToggle.addEventListener('click', toggleRightSidebar);
+  if (sidebarRightToggleFloat) sidebarRightToggleFloat.addEventListener('click', toggleRightSidebar);
+  if (rightSidebarBtn) rightSidebarBtn.addEventListener('click', toggleRightSidebar);
   
   // Word wrap toggle
   if (wordWrapToggle) {
@@ -163,75 +164,83 @@ function setupEventListeners() {
   }
   
   // Document actions
-  saveBtn.addEventListener('click', saveDocument);
-  downloadBtn.addEventListener('click', downloadMarkdown);
-  copyBtn.addEventListener('click', copyMarkdown);
+  if (saveBtn) saveBtn.addEventListener('click', saveDocument);
+  if (downloadBtn) downloadBtn.addEventListener('click', downloadMarkdown);
+  if (copyBtn) copyBtn.addEventListener('click', copyMarkdown);
   
   // Share dropdown
-  shareBtn.addEventListener('click', toggleShareDropdown);
-  shareThirdPartyBtn.addEventListener('click', () => {
-    alert('Third-party sharing will be configured in Settings. This feature is coming soon!');
-  });
+  if (shareBtn) shareBtn.addEventListener('click', toggleShareDropdown);
+  if (shareThirdPartyBtn) {
+    shareThirdPartyBtn.addEventListener('click', () => {
+      alert('Third-party sharing will be configured in Settings. This feature is coming soon!');
+    });
+  }
   
   // Close share dropdown when clicking outside
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.share-dropdown')) {
+    if (!e.target.closest('.share-dropdown') && shareDropdownMenu) {
       shareDropdownMenu.classList.remove('show');
     }
-    if (!e.target.closest('.options-dropdown')) {
+    if (!e.target.closest('.options-dropdown') && optionsDropdownMenu) {
       optionsDropdownMenu.classList.remove('show');
     }
   });
   
   // Auto-save on content change
-  markdownEditor.addEventListener('input', handleContentChange);
-  
-  // Auto-update preview in split mode
-  markdownEditor.addEventListener('input', () => {
-    if (viewMode === 'split') {
-      renderPreview();
-    }
-  });
-  
-  // Synchronized scrolling in split mode with debouncing
+  if (markdownEditor) {
+    markdownEditor.addEventListener('input', handleContentChange);
+    
+    // Auto-update preview in split mode
+    markdownEditor.addEventListener('input', () => {
+      if (viewMode === 'split') {
+        renderPreview();
+      }
+    });
+    
+    // Synchronized scrolling in split mode with debouncing
+    markdownEditor.addEventListener('scroll', () => {
+      if (viewMode === 'split' && !isScrollSyncing) {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+          syncScroll('edit');
+        }, 10);
+      }
+    });
+  }
+  // Synchronized scrolling for preview panel
   let scrollTimeout;
-  previewPanel.addEventListener('scroll', () => {
-    if (viewMode === 'split' && !isScrollSyncing) {
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(() => {
-        syncScroll('preview');
-      }, 10);
-    }
-  });
-  
-  markdownEditor.addEventListener('scroll', () => {
-    if (viewMode === 'split' && !isScrollSyncing) {
-      clearTimeout(scrollTimeout);
-      scrollTimeout = setTimeout(() => {
-        syncScroll('edit');
-      }, 10);
-    }
-  });
+  if (previewPanel) {
+    previewPanel.addEventListener('scroll', () => {
+      if (viewMode === 'split' && !isScrollSyncing) {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(() => {
+          syncScroll('preview');
+        }, 10);
+      }
+    });
+  }
   
   // Handle title editing
-  docTitle.addEventListener('blur', () => {
-    const newTitle = docTitle.textContent.trim();
-    if (newTitle && newTitle !== currentTitle) {
-      currentTitle = newTitle;
-      // Auto-save when title changes
-      if (currentDocId) {
-        saveDocument();
+  if (docTitle) {
+    docTitle.addEventListener('blur', () => {
+      const newTitle = docTitle.textContent.trim();
+      if (newTitle && newTitle !== currentTitle) {
+        currentTitle = newTitle;
+        // Auto-save when title changes
+        if (currentDocId) {
+          saveDocument();
+        }
       }
-    }
-  });
-  
-  // Handle Enter key in title (blur instead of new line)
-  docTitle.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      docTitle.blur();
-    }
-  });
+    });
+    
+    // Handle Enter key in title (blur instead of new line)
+    docTitle.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        docTitle.blur();
+      }
+    });
+  }
   
   // Handle tab close
   window.addEventListener('beforeunload', handleBeforeUnload);
@@ -512,19 +521,10 @@ async function copyMarkdown() {
   
   try {
     await navigator.clipboard.writeText(content);
-    
-    // Visual feedback
-    const originalText = copyBtn.textContent;
-    copyBtn.textContent = 'Copied!';
-    copyBtn.style.background = '#28a745';
-    
-    setTimeout(() => {
-      copyBtn.textContent = originalText;
-      copyBtn.style.background = '';
-    }, 2000);
+    showToast('success', 'Markdown copied to clipboard');
   } catch (error) {
     console.error('Failed to copy:', error);
-    alert('Failed to copy to clipboard');
+    showToast('error', 'Failed to copy to clipboard');
   }
 }
 
@@ -779,6 +779,9 @@ async function loadSavedDocuments() {
     return (b.updatedAt || b.timestamp) - (a.updatedAt || a.timestamp);
   });
   renderDocumentList();
+  updateDocumentCounts();
+  renderGroupsList();
+  updateTagsSidebar();
 }
 
 /**
@@ -1249,3 +1252,1441 @@ function updateAutoSaveLabel() {
     }
   }
 }
+
+// ===========================================
+// InkShelf v2.0 - New Feature Functions
+// Groups, Tags, Auth, Sync, Search
+// ===========================================
+
+// Current state for new features
+let currentGroup = null;
+let currentTags = [];
+let selectedTagFilters = [];
+let searchQuery = '';
+let allGroups = [];
+
+// New DOM elements for v2.0 features
+const searchInput = document.getElementById('searchInput');
+const groupsList = document.getElementById('groupsList');
+const tagsList = document.getElementById('tagsList');
+const groupSelect = document.getElementById('groupSelect');
+const tagInput = document.getElementById('tagInput');
+const tagsInputContainer = document.getElementById('tagsInputContainer');
+const tagsDisplay = document.getElementById('tagsDisplay');
+const newGroupBtn = document.getElementById('newGroupBtn');
+const groupModal = document.getElementById('groupModal');
+const filterAllBtn = document.getElementById('filterAll');
+const filterStarredBtn = document.getElementById('filterStarred');
+const groupsToggle = document.getElementById('groupsToggle');
+const tagsToggle = document.getElementById('tagsToggle');
+const rightSidebarBtn = document.getElementById('rightSidebarBtn');
+const countAll = document.getElementById('countAll');
+const countStarred = document.getElementById('countStarred');
+
+// Auth elements
+const authNotLoggedIn = document.getElementById('authNotLoggedIn');
+const authLoggedIn = document.getElementById('authLoggedIn');
+const loginForm = document.getElementById('loginForm');
+const signupForm = document.getElementById('signupForm');
+const showSignupBtn = document.getElementById('showSignupBtn');
+const showLoginBtn = document.getElementById('showLoginBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const userName = document.getElementById('userName');
+const userEmail = document.getElementById('userEmail');
+
+// Sync elements
+const syncStatusDetail = document.getElementById('syncStatusDetail');
+const lastSyncTime = document.getElementById('lastSyncTime');
+const syncNowBtn = document.getElementById('syncNowBtn');
+
+// Publish elements
+const publishArticleBtn = document.getElementById('publishArticleBtn');
+const myPublishedBtn = document.getElementById('myPublishedBtn');
+
+// Toast container
+const toastContainer = document.getElementById('toastContainer');
+
+/**
+ * Initialize v2.0 features after DOM is ready
+ */
+async function initializeV2Features() {
+  // Setup new event listeners
+  setupSearchListener();
+  setupGroupsUI();
+  setupTagsUI();
+  setupAuthUI();
+  setupSyncUI();
+  setupPublishUI();
+  setupFilterButtons();
+  setupSectionToggles();
+  setupGroupModal();
+  
+  // Load groups
+  await loadGroups();
+  
+  // Initialize auth state
+  if (typeof authManager !== 'undefined' && authManager.addAuthStateListener) {
+    authManager.addAuthStateListener(handleAuthStateChange);
+    handleAuthStateChange(authManager.isAuthenticated());
+  } else {
+    console.log('AuthManager not available, auth features disabled');
+  }
+  
+  // Initialize sync
+  if (typeof syncManager !== 'undefined' && syncManager.start && 
+      typeof authManager !== 'undefined' && authManager.isAuthenticated && authManager.isAuthenticated()) {
+    syncManager.start();
+    updateSyncStatus();
+  } else {
+    updateSyncStatus(); // Update status even if not authenticated
+  }
+  
+  // Listen for online/offline
+  window.addEventListener('online', handleOnlineStatus);
+  window.addEventListener('offline', handleOnlineStatus);
+  handleOnlineStatus();
+  
+  // Update document counts
+  updateDocumentCounts();
+}
+
+/**
+ * Setup filter buttons (All Documents, Starred)
+ */
+function setupFilterButtons() {
+  if (filterAllBtn) {
+    filterAllBtn.addEventListener('click', () => {
+      filterAllBtn.classList.add('active');
+      if (filterStarredBtn) filterStarredBtn.classList.remove('active');
+      currentGroup = null;
+      selectedTagFilters = [];
+      filterAndRenderDocuments();
+    });
+  }
+  
+  if (filterStarredBtn) {
+    filterStarredBtn.addEventListener('click', () => {
+      filterStarredBtn.classList.add('active');
+      if (filterAllBtn) filterAllBtn.classList.remove('active');
+      currentGroup = null;
+      selectedTagFilters = [];
+      filterAndRenderDocuments();
+    });
+  }
+}
+
+/**
+ * Setup section toggle buttons
+ */
+function setupSectionToggles() {
+  // Groups toggle
+  if (groupsToggle) {
+    groupsToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const section = groupsToggle.closest('.sidebar-section');
+      section?.classList.toggle('collapsed');
+    });
+  }
+  
+  // Tags toggle
+  if (tagsToggle) {
+    tagsToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const section = tagsToggle.closest('.sidebar-section');
+      section?.classList.toggle('collapsed');
+    });
+  }
+}
+
+/**
+ * Update document counts in filter buttons
+ */
+function updateDocumentCounts() {
+  if (countAll) {
+    countAll.textContent = savedDocuments.length;
+  }
+  
+  if (countStarred) {
+    const starredCount = savedDocuments.filter(doc => doc.starred).length;
+    countStarred.textContent = starredCount;
+  }
+}
+
+// Call v2 init after main DOMContentLoaded
+document.addEventListener('DOMContentLoaded', () => {
+  // Delay to ensure main init completes
+  setTimeout(initializeV2Features, 100);
+});
+
+// ============ Search Functions ============
+
+/**
+ * Setup search input listener
+ */
+function setupSearchListener() {
+  if (searchInput) {
+    searchInput.addEventListener('input', debounce(handleSearch, 200));
+  }
+}
+
+/**
+ * Handle search input
+ */
+function handleSearch() {
+  searchQuery = searchInput?.value.toLowerCase().trim() || '';
+  filterAndRenderDocuments();
+}
+
+/**
+ * Filter and render documents based on search, group, and tag filters
+ */
+function filterAndRenderDocuments() {
+  let filtered = [...savedDocuments];
+  
+  // Filter by search query
+  if (searchQuery) {
+    filtered = filtered.filter(doc => 
+      doc.title.toLowerCase().includes(searchQuery) ||
+      (doc.content && doc.content.toLowerCase().includes(searchQuery))
+    );
+  }
+  
+  // Filter by group
+  if (currentGroup) {
+    filtered = filtered.filter(doc => doc.groupId === currentGroup);
+  }
+  
+  // Filter by tags
+  if (selectedTagFilters.length > 0) {
+    filtered = filtered.filter(doc => {
+      const docTags = doc.tags || [];
+      return selectedTagFilters.every(tag => docTags.includes(tag));
+    });
+  }
+  
+  // Filter starred if active
+  if (filterStarredBtn && filterStarredBtn.classList.contains('active')) {
+    filtered = filtered.filter(doc => doc.starred);
+  }
+  
+  renderFilteredDocumentList(filtered);
+  updateDocumentCounts();
+}
+
+/**
+ * Render filtered document list
+ */
+function renderFilteredDocumentList(docs) {
+  if (!documentList) return;
+  
+  if (docs.length === 0) {
+    documentList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+        </div>
+        <p>${searchQuery ? 'No documents match your search' : 'No documents yet'}</p>
+      </div>
+    `;
+    return;
+  }
+  
+  documentList.innerHTML = '';
+  
+  docs.forEach(doc => {
+    const item = createDocumentItem(doc);
+    documentList.appendChild(item);
+  });
+}
+
+/**
+ * Create document list item element
+ */
+function createDocumentItem(doc) {
+  const item = document.createElement('div');
+  item.className = 'document-item';
+  if (doc.docId === currentDocId) {
+    item.classList.add('active');
+  }
+  
+  item.draggable = true;
+  item.dataset.docId = doc.docId;
+  
+  const timeAgo = formatRelativeTime(doc.updatedAt || doc.timestamp);
+  const starIndicator = doc.starred ? '<span class="star-indicator" title="Starred">★</span>' : '';
+  
+  // Tags display
+  let tagsHtml = '';
+  if (doc.tags && doc.tags.length > 0) {
+    tagsHtml = `<div class="document-item-tags">${doc.tags.slice(0, 3).map(t => 
+      `<span class="doc-tag">${escapeHtml(t)}</span>`
+    ).join('')}${doc.tags.length > 3 ? `<span class="doc-tag">+${doc.tags.length - 3}</span>` : ''}</div>`;
+  }
+  
+  item.innerHTML = `
+    <div class="document-item-content">
+      <div class="document-item-header">
+        ${starIndicator}
+        <div class="document-item-title">${escapeHtml(doc.title)}</div>
+      </div>
+      <div class="document-item-meta">${timeAgo}</div>
+      ${tagsHtml}
+    </div>
+    <div class="document-item-menu">
+      <button class="document-menu-btn" title="More options">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="1"></circle>
+          <circle cx="12" cy="5" r="1"></circle>
+          <circle cx="12" cy="19" r="1"></circle>
+        </svg>
+      </button>
+      <div class="document-menu-dropdown">
+        <button class="menu-item star-btn ${doc.starred ? 'starred' : ''}" data-doc-id="${doc.docId}">
+          <span class="star-icon">${doc.starred ? '\u2605' : '\u2606'}</span>
+          <span>${doc.starred ? 'Unstar' : 'Star'}</span>
+        </button>
+        <button class="menu-item delete-btn" data-doc-id="${doc.docId}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          <span>Delete</span>
+        </button>
+      </div>
+    </div>
+  `;
+  
+  // Event listeners
+  const contentArea = item.querySelector('.document-item-content');
+  contentArea.addEventListener('click', () => loadDocument(doc.docId));
+  
+  const menuBtn = item.querySelector('.document-menu-btn');
+  const menuDropdown = item.querySelector('.document-menu-dropdown');
+  
+  menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.document-menu-dropdown.show').forEach(menu => {
+      if (menu !== menuDropdown) menu.classList.remove('show');
+    });
+    menuDropdown.classList.toggle('show');
+  });
+  
+  item.querySelector('.star-btn').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await toggleStarDocument(doc.docId);
+    menuDropdown.classList.remove('show');
+  });
+  
+  item.querySelector('.delete-btn').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await deleteDocumentFromList(doc.docId);
+    menuDropdown.classList.remove('show');
+  });
+  
+  item.addEventListener('dragstart', handleDragStart);
+  item.addEventListener('dragend', handleDragEnd);
+  
+  return item;
+}
+
+// ============ Groups Functions ============
+
+/**
+ * Setup groups UI event listeners
+ */
+function setupGroupsUI() {
+  if (newGroupBtn) {
+    newGroupBtn.addEventListener('click', openGroupModal);
+  }
+  
+  if (groupSelect) {
+    groupSelect.addEventListener('change', handleGroupSelectChange);
+  }
+}
+
+/**
+ * Load groups from storage
+ */
+async function loadGroups() {
+  try {
+    if (typeof storageManager !== 'undefined' && storageManager.getAllGroups) {
+      allGroups = await storageManager.getAllGroups();
+      renderGroupsList();
+      updateGroupSelect();
+    } else {
+      console.log('StorageManager not available, groups disabled');
+      allGroups = [];
+    }
+  } catch (error) {
+    console.error('Failed to load groups:', error);
+    allGroups = [];
+  }
+}
+
+/**
+ * Render groups list in sidebar
+ */
+function renderGroupsList() {
+  if (!groupsList) return;
+  
+  // Add "All Documents" item
+  let html = `
+    <div class="group-item ${!currentGroup ? 'active' : ''}" data-group-id="">
+      <div class="group-icon" style="background: var(--text-secondary);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+        </svg>
+      </div>
+      <span class="group-name">All Documents</span>
+      <span class="group-count">${savedDocuments.length}</span>
+    </div>
+  `;
+  
+  // Add each group
+  allGroups.forEach(group => {
+    const count = savedDocuments.filter(d => d.groupId === group.id).length;
+    html += `
+      <div class="group-item ${currentGroup === group.id ? 'active' : ''}" data-group-id="${group.id}">
+        <div class="group-icon" style="background: ${group.color || '#6c757d'};">
+          ${group.icon || '📁'}
+        </div>
+        <span class="group-name">${escapeHtml(group.name)}</span>
+        <span class="group-count">${count}</span>
+        <button class="group-menu-btn" title="Group options">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="1"></circle>
+            <circle cx="12" cy="5" r="1"></circle>
+            <circle cx="12" cy="19" r="1"></circle>
+          </svg>
+        </button>
+        <div class="group-menu-dropdown">
+          <button class="menu-item rename-group-btn" data-group-id="${group.id}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            <span>Rename</span>
+          </button>
+          <button class="menu-item delete-group-btn" data-group-id="${group.id}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            <span>Delete</span>
+          </button>
+        </div>
+      </div>
+    `;
+  });
+  
+  groupsList.innerHTML = html;
+  
+  // Add click handlers for groups
+  groupsList.querySelectorAll('.group-item').forEach(item => {
+    const groupId = item.dataset.groupId;
+    const groupName = item.querySelector('.group-name');
+    const menuBtn = item.querySelector('.group-menu-btn');
+    const menuDropdown = item.querySelector('.group-menu-dropdown');
+    
+    // Click on group name to select
+    if (groupName) {
+      groupName.addEventListener('click', () => {
+        selectGroup(groupId || null);
+      });
+    }
+    
+    // Click on group icon to select
+    item.querySelector('.group-icon')?.addEventListener('click', () => {
+      selectGroup(groupId || null);
+    });
+    
+    // Menu button click
+    if (menuBtn) {
+      menuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Close other menus
+        document.querySelectorAll('.group-menu-dropdown.show').forEach(menu => {
+          if (menu !== menuDropdown) menu.classList.remove('show');
+        });
+        menuDropdown?.classList.toggle('show');
+      });
+    }
+    
+    // Rename button
+    item.querySelector('.rename-group-btn')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      menuDropdown?.classList.remove('show');
+      await renameGroup(groupId);
+    });
+    
+    // Delete button
+    item.querySelector('.delete-group-btn')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      menuDropdown?.classList.remove('show');
+      await deleteGroup(groupId);
+    });
+  });
+  
+  // Close menus when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.group-item')) {
+      document.querySelectorAll('.group-menu-dropdown.show').forEach(menu => {
+        menu.classList.remove('show');
+      });
+    }
+  });
+}
+
+/**
+ * Select a group to filter documents
+ */
+function selectGroup(groupId) {
+  currentGroup = groupId;
+  renderGroupsList();
+  filterAndRenderDocuments();
+}
+
+/**
+ * Update group select dropdown in header
+ */
+function updateGroupSelect() {
+  if (!groupSelect) return;
+  
+  let html = '<option value="">No Group</option>';
+  allGroups.forEach(group => {
+    html += `<option value="${group.id}">${escapeHtml(group.name)}</option>`;
+  });
+  
+  groupSelect.innerHTML = html;
+  
+  // Set current document's group
+  const currentDoc = savedDocuments.find(d => d.docId === currentDocId);
+  if (currentDoc?.groupId) {
+    groupSelect.value = currentDoc.groupId;
+  }
+}
+
+/**
+ * Handle group select change for current document
+ */
+async function handleGroupSelectChange() {
+  const groupId = groupSelect.value || null;
+  const group = allGroups.find(g => g.id === groupId);
+  
+  if (currentDocId) {
+    const doc = await storageManager.getDraft(currentDocId);
+    if (doc) {
+      doc.groupId = groupId;
+      doc.groupName = group?.name || null;
+      await storageManager.saveDraft(doc);
+      await loadSavedDocuments();
+      const groupName = group?.name ? `"${group.name}"` : 'No Group';
+      showToast('success', `Document moved to ${groupName}`);
+    }
+  }
+}
+
+// ============ Tags Functions ============
+
+/**
+ * Setup tags UI event listeners
+ */
+function setupTagsUI() {
+  if (tagInput) {
+    tagInput.addEventListener('keydown', handleTagInputKeydown);
+    tagInput.addEventListener('blur', handleTagInputBlur);
+  }
+  
+  if (tagsInputContainer) {
+    tagsInputContainer.addEventListener('click', () => tagInput?.focus());
+  }
+}
+
+/**
+ * Handle tag input keydown
+ */
+function handleTagInputKeydown(e) {
+  const value = tagInput.value.trim();
+  
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    if (value && !currentTags.includes(value)) {
+      addTag(value);
+      tagInput.value = '';
+    }
+  } else if (e.key === 'Backspace' && !value && currentTags.length > 0) {
+    removeTag(currentTags[currentTags.length - 1]);
+  }
+}
+
+/**
+ * Handle tag input blur
+ */
+function handleTagInputBlur() {
+  const value = tagInput?.value.trim();
+  if (value && !currentTags.includes(value)) {
+    addTag(value);
+    tagInput.value = '';
+  }
+}
+
+/**
+ * Add a tag to current document
+ */
+async function addTag(tag) {
+  if (!currentTags.includes(tag)) {
+    currentTags.push(tag);
+    renderCurrentTags();
+    await saveDocumentTags();
+  }
+}
+
+/**
+ * Remove a tag from current document
+ */
+async function removeTag(tag) {
+  currentTags = currentTags.filter(t => t !== tag);
+  renderCurrentTags();
+  await saveDocumentTags();
+}
+
+/**
+ * Render current document's tags
+ */
+function renderCurrentTags() {
+  if (!tagsInputContainer) return;
+  
+  // Remove existing tags
+  tagsInputContainer.querySelectorAll('.tag-badge').forEach(el => el.remove());
+  
+  // Add tag badges before input
+  currentTags.forEach(tag => {
+    const badge = document.createElement('span');
+    badge.className = 'tag-badge';
+    badge.innerHTML = `
+      ${escapeHtml(tag)}
+      <button class="remove-tag" data-tag="${escapeHtml(tag)}">&times;</button>
+    `;
+    badge.querySelector('.remove-tag').addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeTag(tag);
+    });
+    tagsInputContainer.insertBefore(badge, tagInput);
+  });
+}
+
+/**
+ * Save current document's tags
+ */
+async function saveDocumentTags() {
+  if (currentDocId) {
+    const doc = await storageManager.getDraft(currentDocId);
+    if (doc) {
+      doc.tags = currentTags;
+      await storageManager.saveDraft(doc);
+      await loadSavedDocuments();
+      updateTagsSidebar();
+    }
+  }
+}
+
+/**
+ * Load tags for current document
+ */
+function loadDocumentTags(doc) {
+  currentTags = doc?.tags || [];
+  renderCurrentTags();
+}
+
+/**
+ * Update tags sidebar with all unique tags
+ */
+function updateTagsSidebar() {
+  if (!tagsList) return;
+  
+  // Collect all unique tags with counts
+  const tagCounts = {};
+  savedDocuments.forEach(doc => {
+    (doc.tags || []).forEach(tag => {
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    });
+  });
+  
+  const tags = Object.keys(tagCounts).sort();
+  
+  if (tags.length === 0) {
+    tagsList.innerHTML = '<p style="color: var(--text-secondary); font-size: 12px; padding: 4px;">No tags yet</p>';
+    return;
+  }
+  
+  let html = '';
+  tags.forEach(tag => {
+    const isActive = selectedTagFilters.includes(tag);
+    html += `
+      <span class="tag-filter ${isActive ? 'active' : ''}" data-tag="${escapeHtml(tag)}">
+        ${escapeHtml(tag)}
+        <span class="tag-count">${tagCounts[tag]}</span>
+      </span>
+    `;
+  });
+  
+  tagsList.innerHTML = html;
+  
+  // Add click handlers
+  tagsList.querySelectorAll('.tag-filter').forEach(el => {
+    el.addEventListener('click', () => {
+      const tag = el.dataset.tag;
+      toggleTagFilter(tag);
+    });
+  });
+}
+
+/**
+ * Toggle tag filter
+ */
+function toggleTagFilter(tag) {
+  if (selectedTagFilters.includes(tag)) {
+    selectedTagFilters = selectedTagFilters.filter(t => t !== tag);
+  } else {
+    selectedTagFilters.push(tag);
+  }
+  updateTagsSidebar();
+  filterAndRenderDocuments();
+}
+
+// ============ Filter Tabs Functions ============
+
+/**
+ * Setup filter tabs (All, Starred)
+ */
+function setupFilterTabs() {
+  const filterTabs = document.querySelectorAll('.filter-tab');
+  filterTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      filterTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      filterAndRenderDocuments();
+    });
+  });
+}
+
+// ============ Group Modal Functions ============
+
+/**
+ * Setup group creation modal
+ */
+function setupGroupModal() {
+  const closeBtn = document.getElementById('groupModalClose');
+  const cancelBtn = document.getElementById('groupModalCancel');
+  const groupForm = document.getElementById('groupForm');
+  
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeGroupModal();
+    });
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeGroupModal();
+    });
+  }
+  
+  if (groupForm) {
+    groupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await createGroup();
+    });
+  }
+  
+  // Close on backdrop click
+  if (groupModal) {
+    groupModal.addEventListener('click', (e) => {
+      if (e.target === groupModal || e.target.classList.contains('modal-backdrop')) {
+        closeGroupModal();
+      }
+    });
+  }
+  
+  // Setup color options
+  setupColorPicker();
+}
+
+/**
+ * Open group creation modal
+ */
+function openGroupModal() {
+  if (groupModal) {
+    groupModal.style.display = 'flex';
+    // Trigger reflow
+    groupModal.offsetHeight;
+    groupModal.classList.add('show');
+    const nameInput = document.getElementById('groupName');
+    if (nameInput) {
+      nameInput.value = '';
+      setTimeout(() => nameInput.focus(), 100);
+    }
+  }
+}
+
+/**
+ * Close group creation modal
+ */
+function closeGroupModal() {
+  if (groupModal) {
+    groupModal.classList.remove('show');
+    setTimeout(() => {
+      groupModal.style.display = 'none';
+    }, 200);
+  }
+}
+
+/**
+ * Setup color picker in modal
+ */
+function setupColorPicker() {
+  const colorOptions = groupModal?.querySelectorAll('.color-option');
+  colorOptions?.forEach(option => {
+    option.addEventListener('click', () => {
+      colorOptions.forEach(o => o.classList.remove('selected'));
+      option.classList.add('selected');
+    });
+  });
+}
+
+/**
+ * Setup icon picker in modal
+ */
+function setupIconPicker() {
+  const iconOptions = groupModal?.querySelectorAll('.icon-option');
+  iconOptions?.forEach(option => {
+    option.addEventListener('click', () => {
+      iconOptions.forEach(o => o.classList.remove('selected'));
+      option.classList.add('selected');
+    });
+  });
+}
+
+/**
+ * Create new group
+ */
+async function createGroup() {
+  const nameInput = document.getElementById('groupName');
+  const name = nameInput?.value.trim();
+  
+  if (!name) {
+    showToast('error', 'Please enter a group name');
+    return;
+  }
+  
+  const selectedColor = groupModal?.querySelector('.color-option.selected');
+  
+  const group = {
+    id: 'group_' + Date.now(),
+    name: name,
+    color: selectedColor?.dataset.color || '#4A90D9',
+    icon: '📁',
+    createdAt: Date.now()
+  };
+  
+  try {
+    if (typeof storageManager !== 'undefined' && storageManager.saveGroup) {
+      await storageManager.saveGroup(group);
+      await loadGroups();
+      closeGroupModal();
+      showToast('success', `Group "${name}" created`);
+    } else {
+      console.error('StorageManager not available');
+      showToast('error', 'Storage not available');
+    }
+  } catch (error) {
+    console.error('Failed to create group:', error);
+    showToast('error', 'Failed to create group');
+  }
+}
+
+/**
+ * Rename a group
+ */
+async function renameGroup(groupId) {
+  const group = allGroups.find(g => g.id === groupId);
+  if (!group) return;
+  
+  const newName = prompt('Enter new group name:', group.name);
+  if (!newName || newName.trim() === '') return;
+  
+  const trimmedName = newName.trim();
+  if (trimmedName === group.name) return;
+  
+  try {
+    group.name = trimmedName;
+    group.updatedAt = Date.now();
+    
+    if (typeof storageManager !== 'undefined' && storageManager.saveGroup) {
+      await storageManager.saveGroup(group);
+      
+      // Update all documents with this group
+      const docsToUpdate = savedDocuments.filter(d => d.groupId === groupId);
+      for (const doc of docsToUpdate) {
+        doc.groupName = trimmedName;
+        await storageManager.saveDraft(doc);
+      }
+      
+      await loadGroups();
+      await loadSavedDocuments();
+      showToast('success', `Group renamed to "${trimmedName}"`);
+    } else {
+      showToast('error', 'Storage not available');
+    }
+  } catch (error) {
+    console.error('Failed to rename group:', error);
+    showToast('error', 'Failed to rename group');
+  }
+}
+
+/**
+ * Delete a group
+ */
+async function deleteGroup(groupId) {
+  const group = allGroups.find(g => g.id === groupId);
+  if (!group) return;
+  
+  const docsInGroup = savedDocuments.filter(d => d.groupId === groupId).length;
+  const message = docsInGroup > 0
+    ? `Delete group "${group.name}"? ${docsInGroup} document(s) will be moved to "No Group".`
+    : `Delete group "${group.name}"?`;
+  
+  if (!confirm(message)) return;
+  
+  try {
+    if (typeof storageManager !== 'undefined' && storageManager.deleteGroup) {
+      // Remove group assignment from documents
+      const docsToUpdate = savedDocuments.filter(d => d.groupId === groupId);
+      for (const doc of docsToUpdate) {
+        doc.groupId = null;
+        doc.groupName = null;
+        await storageManager.saveDraft(doc);
+      }
+      
+      // Delete the group
+      await storageManager.deleteGroup(groupId);
+      
+      // Reset current group if it was deleted
+      if (currentGroup === groupId) {
+        currentGroup = null;
+      }
+      
+      await loadGroups();
+      await loadSavedDocuments();
+      showToast('success', `Group "${group.name}" deleted`);
+    } else {
+      showToast('error', 'Storage not available');
+    }
+  } catch (error) {
+    console.error('Failed to delete group:', error);
+    showToast('error', 'Failed to delete group');
+  }
+}
+
+// ============ Auth UI Functions ============
+
+/**
+ * Setup auth UI event listeners
+ */
+function setupAuthUI() {
+  // Show/hide form switching
+  if (showSignupBtn) {
+    showSignupBtn.addEventListener('click', () => {
+      if (loginForm) loginForm.style.display = 'none';
+      if (signupForm) signupForm.style.display = 'block';
+      if (showSignupBtn) showSignupBtn.style.display = 'none';
+    });
+  }
+  
+  if (showLoginBtn) {
+    showLoginBtn.addEventListener('click', () => {
+      if (signupForm) signupForm.style.display = 'none';
+      if (loginForm) loginForm.style.display = 'block';
+      if (showSignupBtn) showSignupBtn.style.display = 'block';
+    });
+  }
+  
+  // Form submissions
+  if (loginForm) {
+    loginForm.addEventListener('submit', handleLogin);
+  }
+  if (signupForm) {
+    signupForm.addEventListener('submit', handleSignup);
+  }
+  
+  // Logout
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', handleLogout);
+  }
+}
+
+/**
+ * Switch auth forms
+ */
+function switchAuthTab(tab) {
+  if (tab === 'login') {
+    if (loginForm) loginForm.style.display = 'block';
+    if (signupForm) signupForm.style.display = 'none';
+    if (showSignupBtn) showSignupBtn.style.display = 'block';
+  } else {
+    if (loginForm) loginForm.style.display = 'none';
+    if (signupForm) signupForm.style.display = 'block';
+    if (showSignupBtn) showSignupBtn.style.display = 'none';
+  }
+}
+
+/**
+ * Handle login form submission
+ */
+async function handleLogin(e) {
+  e.preventDefault();
+  
+  const email = document.getElementById('loginEmail')?.value;
+  const password = document.getElementById('loginPassword')?.value;
+  const submitBtn = loginForm?.querySelector('button[type="submit"]');
+  
+  if (!email || !password) {
+    showToast('error', 'Please fill in all fields');
+    return;
+  }
+  
+  submitBtn?.classList.add('loading');
+  
+  try {
+    if (typeof authManager !== 'undefined' && authManager.login) {
+      await authManager.login(email, password);
+      showToast('success', 'Logged in successfully');
+    } else {
+      showToast('error', 'Auth module not loaded');
+    }
+  } catch (error) {
+    showToast('error', error.message || 'Login failed');
+  } finally {
+    submitBtn?.classList.remove('loading');
+  }
+}
+
+/**
+ * Handle signup form submission
+ */
+async function handleSignup(e) {
+  e.preventDefault();
+  
+  const email = document.getElementById('signupEmail')?.value;
+  const password = document.getElementById('signupPassword')?.value;
+  const confirmPassword = document.getElementById('signupConfirmPassword')?.value;
+  const submitBtn = signupForm?.querySelector('button[type="submit"]');
+  
+  if (!email || !password || !confirmPassword) {
+    showToast('error', 'Please fill in all fields');
+    return;
+  }
+  
+  if (password !== confirmPassword) {
+    showToast('error', 'Passwords do not match');
+    return;
+  }
+  
+  if (password.length < 8) {
+    showToast('error', 'Password must be at least 8 characters');
+    return;
+  }
+  
+  submitBtn?.classList.add('loading');
+  
+  try {
+    if (typeof authManager !== 'undefined' && authManager.register) {
+      await authManager.register(email, password);
+      showToast('success', 'Account created successfully');
+    } else {
+      showToast('error', 'Auth module not loaded');
+    }
+  } catch (error) {
+    showToast('error', error.message || 'Signup failed');
+  } finally {
+    submitBtn?.classList.remove('loading');
+  }
+}
+
+/**
+ * Handle logout
+ */
+async function handleLogout() {
+  try {
+    if (typeof authManager !== 'undefined' && authManager.logout) {
+      await authManager.logout();
+      showToast('info', 'Logged out');
+    } else {
+      showToast('info', 'Already logged out');
+    }
+  } catch (error) {
+    showToast('error', 'Logout failed');
+  }
+}
+
+/**
+ * Handle auth state change
+ */
+function handleAuthStateChange(isAuthenticated) {
+  if (isAuthenticated) {
+    // Show logged in state
+    if (authNotLoggedIn) authNotLoggedIn.style.display = 'none';
+    if (authLoggedIn) authLoggedIn.style.display = 'block';
+    
+    // Update user info
+    if (userName && authManager?.getUser) {
+      userName.textContent = authManager.getUser()?.name || 'User';
+    }
+    if (userEmail && authManager?.getUser) {
+      userEmail.textContent = authManager.getUser()?.email || 'user@example.com';
+    }
+    
+    // Start sync
+    if (typeof syncManager !== 'undefined' && syncManager.start) {
+      syncManager.start();
+    }
+  } else {
+    // Show not logged in state
+    if (authNotLoggedIn) authNotLoggedIn.style.display = 'block';
+    if (authLoggedIn) authLoggedIn.style.display = 'none';
+    
+    // Stop sync
+    if (typeof syncManager !== 'undefined' && syncManager.stop) {
+      syncManager.stop();
+    }
+  }
+  
+  updateSyncStatus();
+  updatePublishStatus();
+}
+
+// ============ Sync UI Functions ============
+
+/**
+ * Setup sync UI event listeners
+ */
+function setupSyncUI() {
+  if (syncNowBtn) {
+    syncNowBtn.addEventListener('click', handleSyncNow);
+  }
+}
+
+/**
+ * Handle sync now button
+ */
+async function handleSyncNow() {
+  if (typeof syncManager === 'undefined' || !syncManager.syncNow) {
+    showToast('error', 'Sync module not available');
+    return;
+  }
+  
+  if (typeof authManager === 'undefined' || !authManager.isAuthenticated || !authManager.isAuthenticated()) {
+    showToast('error', 'Please log in to sync');
+    return;
+  }
+  
+  syncNowBtn?.classList.add('loading');
+  
+  try {
+    await syncManager.syncNow();
+    showToast('success', 'Synced successfully');
+    updateSyncStatus();
+  } catch (error) {
+    showToast('error', error.message || 'Sync failed');
+  } finally {
+    syncNowBtn?.classList.remove('loading');
+  }
+}
+
+/**
+ * Update sync status display
+ */
+function updateSyncStatus() {
+  const isOnline = navigator.onLine;
+  const isAuthenticated = typeof authManager !== 'undefined' && authManager.isAuthenticated && authManager.isAuthenticated();
+  
+  if (!isAuthenticated) {
+    if (syncStatusDetail) {
+      syncStatusDetail.innerHTML = `
+        <span class="sync-indicator"></span>
+        Not connected
+      `;
+    }
+    if (lastSyncTime) lastSyncTime.textContent = 'Last sync: Never';
+    return;
+  }
+  
+  if (!isOnline) {
+    if (syncStatusDetail) {
+      syncStatusDetail.innerHTML = `
+        <span class="sync-indicator offline"></span>
+        Offline
+      `;
+    }
+  } else {
+    if (syncStatusDetail) {
+      syncStatusDetail.innerHTML = `
+        <span class="sync-indicator synced"></span>
+        Connected
+      `;
+    }
+  }
+  
+  // Update last sync time
+  const lastSync = localStorage.getItem('inkshelf-last-sync');
+  if (lastSync && lastSyncTime) {
+    lastSyncTime.textContent = 'Last sync: ' + formatRelativeTime(parseInt(lastSync));
+  } else if (lastSyncTime) {
+    lastSyncTime.textContent = 'Last sync: Never';
+  }
+}
+
+// ============ Publish UI Functions ============
+
+/**
+ * Setup publish UI event listeners
+ */
+function setupPublishUI() {
+  if (publishArticleBtn) {
+    publishArticleBtn.addEventListener('click', handlePublish);
+  }
+  if (myPublishedBtn) {
+    myPublishedBtn.addEventListener('click', () => {
+      // Open published articles page
+      window.open('https://tulis.app/dashboard', '_blank');
+    });
+  }
+}
+
+/**
+ * Handle publish button
+ */
+async function handlePublish() {
+  if (!authManager?.isAuthenticated || !authManager.isAuthenticated()) {
+    showToast('error', 'Please log in to publish');
+    return;
+  }
+  
+  if (!currentDocId) {
+    showToast('error', 'No document selected');
+    return;
+  }
+  
+  publishArticleBtn?.classList.add('loading');
+  
+  try {
+    // Get current document
+    const doc = await storageManager.getDraft(currentDocId);
+    if (!doc) throw new Error('Document not found');
+    
+    // Publish via API (assuming authManager has apiRequest method)
+    if (typeof authManager !== 'undefined' && authManager.apiRequest) {
+      const response = await authManager.apiRequest('/documents/' + (doc.cloudId || 'new') + '/publish', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: doc.title,
+          content: doc.content
+        })
+      });
+      
+      // Update document with publish info
+      doc.isPublished = true;
+      doc.publishUrl = response.url;
+      doc.cloudId = response.id;
+      await storageManager.saveDraft(doc);
+      
+      showToast('success', 'Document published!');
+    } else {
+      showToast('info', 'Publishing feature will be available when connected to Tulis.app');
+    }
+    
+    updatePublishStatus();
+  } catch (error) {
+    showToast('error', error.message || 'Publish failed');
+  } finally {
+    publishArticleBtn?.classList.remove('loading');
+  }
+}
+
+/**
+ * Handle unpublish button
+ */
+async function handleUnpublish() {
+  if (!currentDocId) return;
+  
+  unpublishBtn?.classList.add('loading');
+  
+  try {
+    const doc = await storageManager.getDraft(currentDocId);
+    if (!doc?.cloudId) throw new Error('Document not synced');
+    
+    await authManager.apiRequest('/documents/' + doc.cloudId + '/unpublish', {
+      method: 'POST'
+    });
+    
+    doc.isPublished = false;
+    doc.publishUrl = null;
+    await storageManager.saveDraft(doc);
+    
+    showToast('success', 'Document unpublished');
+    updatePublishStatus();
+  } catch (error) {
+    showToast('error', error.message || 'Unpublish failed');
+  } finally {
+    unpublishBtn?.classList.remove('loading');
+  }
+}
+
+/**
+ * Handle view published button
+ */
+async function handleViewPublished() {
+  if (!currentDocId) return;
+  
+  const doc = await storageManager.getDraft(currentDocId);
+  if (doc?.publishUrl) {
+    window.open(doc.publishUrl, '_blank');
+  }
+}
+
+/**
+ * Update publish status display
+ */
+async function updatePublishStatus() {
+  if (!currentDocId) return;
+  
+  const doc = await storageManager.getDraft(currentDocId);
+  const isPublished = doc?.isPublished;
+  
+  // For now, we just update the publish button text
+  // The actual status display can be added to the UI later
+  if (publishArticleBtn) {
+    if (isPublished) {
+      publishArticleBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        Published
+      `;
+      publishArticleBtn.disabled = true;
+    } else {
+      publishArticleBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
+        </svg>
+        Publish Article
+      `;
+      publishArticleBtn.disabled = false;
+    }
+  }
+}
+
+// ============ Online/Offline Status ============
+
+/**
+ * Handle online/offline status change
+ */
+function handleOnlineStatus() {
+  if (navigator.onLine) {
+    document.body.classList.remove('offline');
+  } else {
+    document.body.classList.add('offline');
+  }
+  updateSyncStatus();
+}
+
+// ============ Toast Notifications ============
+
+/**
+ * Show toast notification
+ */
+function showToast(type, message) {
+  if (!toastContainer) return;
+  
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  
+  const icons = {
+    success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+    error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>',
+    warning: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffc107" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
+    info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0066cc" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
+  };
+  
+  toast.innerHTML = `
+    <span class="toast-icon">${icons[type] || icons.info}</span>
+    <span class="toast-message">${escapeHtml(message)}</span>
+    <button class="toast-close">&times;</button>
+  `;
+  
+  toast.querySelector('.toast-close').addEventListener('click', () => {
+    toast.remove();
+  });
+  
+  toastContainer.appendChild(toast);
+  
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    toast.remove();
+  }, 5000);
+}
+
+// ============ Utility Functions ============
+
+/**
+ * Debounce function
+ */
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+// ============ Override loadDocument to load tags ============
+
+const originalLoadDocument = loadDocument;
+loadDocument = async function(docId) {
+  await originalLoadDocument(docId);
+  
+  // Load document-specific data
+  const doc = await storageManager.getDraft(docId);
+  if (doc) {
+    loadDocumentTags(doc);
+    
+    // Update group select
+    if (groupSelect) {
+      groupSelect.value = doc.groupId || '';
+    }
+    
+    updatePublishStatus();
+  }
+};
+
+// ============ Override loadSavedDocuments to update UI ============
+
+const originalLoadSavedDocuments = loadSavedDocuments;
+loadSavedDocuments = async function() {
+  await originalLoadSavedDocuments();
+  renderGroupsList();
+  updateTagsSidebar();
+  filterAndRenderDocuments();
+};

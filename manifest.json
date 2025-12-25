@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "InkShelf",
-  "version": "1.0.0",
-  "description": "Capture web pages and turn them into clean, editable Markdown drafts",
+  "version": "2.0.0",
+  "description": "Capture web pages and turn them into clean, editable Markdown drafts. Organize with groups and tags, sync with Tulis.app, and backup your library.",
   "permissions": [
     "activeTab",
     "storage",

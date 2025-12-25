@@ -159,6 +159,19 @@
       background: #dc3545;
       color: white;
     }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .btn-small {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .btn-small svg {
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -259,6 +272,77 @@
       </div>
     </div>
 
+    <!-- Backup & Restore Settings -->
+    <div class="settings-section">
+      <h2>Backup & Restore</h2>
+      
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Export All Documents</div>
+          <div class="setting-description">Download all documents as a ZIP file with metadata</div>
+        </div>
+        <div class="setting-control">
+          <button class="btn btn-primary btn-small" id="exportBackupBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Export Backup
+          </button>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Import Backup</div>
+          <div class="setting-description">Restore documents from a ZIP backup file</div>
+        </div>
+        <div class="setting-control">
+          <input type="file" id="importBackupInput" accept=".zip" style="display: none;">
+          <button class="btn btn-secondary btn-small" id="importBackupBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            Import Backup
+          </button>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Auto Backup</div>
+          <div class="setting-description">Automatically create backups periodically</div>
+        </div>
+        <div class="setting-control">
+          <div id="autoBackupToggle" class="toggle-switch"></div>
+        </div>
+      </div>
+
+      <div class="setting-item" id="backupIntervalSetting" style="display: none;">
+        <div class="setting-info">
+          <div class="setting-label">Backup Interval</div>
+          <div class="setting-description">How often to create automatic backups</div>
+        </div>
+        <div class="setting-control">
+          <select class="select-control" id="backupIntervalSelect">
+            <option value="daily" selected>Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Last Backup</div>
+          <div class="setting-description" id="lastBackupTime">Never</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Danger Zone -->
     <div class="danger-zone">
       <h2>Danger Zone</h2>
@@ -285,6 +369,8 @@
     </div>
   </div>
 
+  <script src="storage.js"></script>
+  <script src="backup.js"></script>
   <script src="settings.js"></script>
 </body>
 </html>
