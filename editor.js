@@ -1034,6 +1034,41 @@ function escapeHtml(text) {
 }
 
 /**
+ * Validate and sanitize CSS color value
+ * Only allows hex colors (#RGB, #RRGGBB, #RGBA, #RRGGBBAA) and named colors
+ * @param {string} color - Color value to validate
+ * @param {string} fallback - Fallback color if invalid
+ * @returns {string} Validated color or fallback
+ */
+function sanitizeCssColor(color, fallback = '#6c757d') {
+  if (!color || typeof color !== 'string') return fallback;
+  
+  const trimmedColor = color.trim();
+  
+  // Hex colors: #RGB, #RRGGBB, #RGBA, #RRGGBBAA
+  if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{8})$/.test(trimmedColor)) {
+    return trimmedColor;
+  }
+  
+  // Named CSS colors (common ones used in the app)
+  const namedColors = [
+    'blue', 'green', 'red', 'gold', 'purple', 'orange', 'teal', 'gray', 'grey',
+    'white', 'black', 'transparent', 'inherit', 'currentColor'
+  ];
+  if (namedColors.includes(trimmedColor.toLowerCase())) {
+    return trimmedColor;
+  }
+  
+  // rgb() and rgba() formats
+  if (/^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*(0|1|0?\.\d+))?\s*\)$/i.test(trimmedColor)) {
+    return trimmedColor;
+  }
+  
+  // Return fallback for invalid colors
+  return fallback;
+}
+
+/**
  * Load saved documents from storage
  */
 async function loadSavedDocuments() {
@@ -1958,7 +1993,7 @@ function renderGroupsList() {
     const count = savedDocuments.filter(d => d.groupId === group.groupId).length;
     html += `
       <div class="group-item ${currentGroup === group.groupId ? 'active' : ''}" data-group-id="${escapeHtml(group.groupId)}">
-        <div class="group-icon" style="background: ${escapeHtml(group.color || '#6c757d')};">
+        <div class="group-icon" style="background: ${sanitizeCssColor(group.color)};">
           ${escapeHtml(group.icon || '📁')}
         </div>
         <span class="group-name">${escapeHtml(group.name)}</span>

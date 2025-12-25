@@ -302,6 +302,8 @@ async function handleImportBackup(e) {
   
   try {
     if (typeof backupManager !== 'undefined' && file.name.endsWith('.zip')) {
+      // Use 'merge' strategy to add imported documents without overwriting existing ones
+      // This prevents accidental data loss when importing backups
       const result = await backupManager.importFromZip(file, 'merge');
       showNotification(`Imported ${result.imported} documents successfully!`, 'success');
     } else if (file.name.endsWith('.json')) {
