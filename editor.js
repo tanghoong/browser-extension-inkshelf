@@ -1293,6 +1293,7 @@ const filterAllBtn = document.getElementById('filterAll');
 const filterStarredBtn = document.getElementById('filterStarred');
 const groupsToggle = document.getElementById('groupsToggle');
 const tagsToggle = document.getElementById('tagsToggle');
+const documentsToggle = document.getElementById('documentsToggle');
 const rightSidebarBtn = document.getElementById('rightSidebarBtn');
 const countAll = document.getElementById('countAll');
 const countStarred = document.getElementById('countStarred');
@@ -1393,23 +1394,27 @@ function setupFilterButtons() {
  * Setup section toggle buttons
  */
 function setupSectionToggles() {
-  // Groups toggle
-  if (groupsToggle) {
-    groupsToggle.addEventListener('click', (e) => {
+  // Helper function to setup toggle for a section
+  const setupToggle = (toggleBtn, sectionSelector) => {
+    if (!toggleBtn) return;
+    
+    const section = toggleBtn.closest('.sidebar-section');
+    if (!section) return;
+    
+    const header = section.querySelector('.section-header');
+    if (!header) return;
+    
+    // Click on entire header to toggle
+    header.addEventListener('click', (e) => {
       e.stopPropagation();
-      const section = groupsToggle.closest('.sidebar-section');
-      section?.classList.toggle('collapsed');
+      section.classList.toggle('collapsed');
     });
-  }
+  };
   
-  // Tags toggle
-  if (tagsToggle) {
-    tagsToggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const section = tagsToggle.closest('.sidebar-section');
-      section?.classList.toggle('collapsed');
-    });
-  }
+  // Setup all sections
+  setupToggle(groupsToggle, '.sidebar-section');
+  setupToggle(tagsToggle, '.sidebar-section');
+  setupToggle(documentsToggle, '.sidebar-section');
 }
 
 /**
@@ -1669,7 +1674,6 @@ function renderGroupsList() {
           ${group.icon || '📁'}
         </div>
         <span class="group-name">${escapeHtml(group.name)}</span>
-        <span class="group-count">${count}</span>
         <button class="group-menu-btn" title="Group options">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="1"></circle>
@@ -1677,6 +1681,7 @@ function renderGroupsList() {
             <circle cx="12" cy="19" r="1"></circle>
           </svg>
         </button>
+        <span class="group-count">${count}</span>
         <div class="group-menu-dropdown">
           <button class="menu-item rename-group-btn" data-group-id="${group.groupId}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

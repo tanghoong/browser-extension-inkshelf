@@ -686,6 +686,19 @@ body {
   position: relative;
 }
 
+#optionsBtn {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: color 0.2s;
+}
+
+#optionsBtn:hover {
+  color: var(--text-primary);
+}
+
 .options-dropdown-menu {
   position: absolute;
   top: calc(100% + 4px);
@@ -1374,14 +1387,6 @@ body {
 
 .sidebar-section-content {
   padding: 4px 0;
-}
-
-.documents-section .section-header {
-  cursor: default;
-}
-
-.documents-section .section-header:hover {
-  background: transparent;
 }
 
 /* Groups List */
