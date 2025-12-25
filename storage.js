@@ -187,6 +187,9 @@ class StorageManager {
       const transaction = this.db.transaction([this.STORE_NAME], 'readwrite');
       const objectStore = transaction.objectStore(this.STORE_NAME);
       
+      // Extract tags from content if not explicitly provided
+      const tags = draft.tags || this._extractTagsFromFrontmatter(draft.content) || [];
+      
       const draftData = {
         docId: draft.docId,
         content: draft.content,
@@ -200,7 +203,7 @@ class StorageManager {
         // v2 fields
         groupId: draft.groupId || 'default',
         groupName: draft.groupName || 'Uncategorized',
-        tags: draft.tags || [],
+        tags: tags,
         syncedAt: draft.syncedAt || null,
         cloudId: draft.cloudId || null,
         syncStatus: draft.syncStatus || 'pending'
@@ -371,13 +374,16 @@ class StorageManager {
    * Update document tags
    * @param {string} docId - Document ID
    * @param {string[]} tags - Array of tags
+   * @param {string} currentContent - Optional current content to avoid fetching stale data
    */
-  async updateTags(docId, tags) {
+  async updateTags(docId, tags, currentContent = null) {
     const draft = await this.getDraft(docId);
     if (draft) {
       draft.tags = tags;
+      // Use provided current content if available, otherwise use draft content
+      const contentToUpdate = currentContent !== null ? currentContent : draft.content;
       // Also update frontmatter in content
-      draft.content = this._updateFrontmatterTags(draft.content, tags);
+      draft.content = this._updateFrontmatterTags(contentToUpdate, tags);
       await this.saveDraft(draft);
     }
     return draft;

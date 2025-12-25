@@ -94,11 +94,14 @@ async function initializeEditor(data) {
   
   // Check for existing draft in session storage
   const sessionContent = storageManager.getFromSession(currentDocId);
+  let savedDraft = null;
   if (sessionContent) {
     currentContent = sessionContent;
+    // Still fetch the draft to get metadata
+    savedDraft = await storageManager.getDraft(currentDocId);
   } else {
     // Check IndexedDB for existing draft
-    const savedDraft = await storageManager.getDraft(currentDocId);
+    savedDraft = await storageManager.getDraft(currentDocId);
     if (savedDraft) {
       currentContent = savedDraft.content;
     }
@@ -114,14 +117,25 @@ async function initializeEditor(data) {
   // Render preview
   renderPreview();
   
-  // Save to IndexedDB
-  await storageManager.saveDraft({
+  // Save to IndexedDB, preserving existing metadata if available
+  const savedDoc = await storageManager.saveDraft({
+    ...savedDraft,  // Preserve existing metadata (groupId, starred, syncedAt, etc.)
     docId: currentDocId,
     content: currentContent,
     title: currentTitle,
     url: currentUrl,
     mode: data.mode
   });
+  
+  // Load document tags and group info from the saved document
+  if (savedDoc) {
+    loadDocumentTags(savedDoc);
+    
+    // Update group select
+    if (groupSelect) {
+      groupSelect.value = savedDoc.groupId || '';
+    }
+  }
 }
 
 /**
@@ -1648,9 +1662,9 @@ function renderGroupsList() {
   
   // Add each group
   allGroups.forEach(group => {
-    const count = savedDocuments.filter(d => d.groupId === group.id).length;
+    const count = savedDocuments.filter(d => d.groupId === group.groupId).length;
     html += `
-      <div class="group-item ${currentGroup === group.id ? 'active' : ''}" data-group-id="${group.id}">
+      <div class="group-item ${currentGroup === group.groupId ? 'active' : ''}" data-group-id="${group.groupId}">
         <div class="group-icon" style="background: ${group.color || '#6c757d'};">
           ${group.icon || '📁'}
         </div>
@@ -1664,14 +1678,14 @@ function renderGroupsList() {
           </svg>
         </button>
         <div class="group-menu-dropdown">
-          <button class="menu-item rename-group-btn" data-group-id="${group.id}">
+          <button class="menu-item rename-group-btn" data-group-id="${group.groupId}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
             <span>Rename</span>
           </button>
-          <button class="menu-item delete-group-btn" data-group-id="${group.id}">
+          <button class="menu-item delete-group-btn" data-group-id="${group.groupId}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -1758,7 +1772,7 @@ function updateGroupSelect() {
   
   let html = '<option value="">No Group</option>';
   allGroups.forEach(group => {
-    html += `<option value="${group.id}">${escapeHtml(group.name)}</option>`;
+    html += `<option value="${group.groupId}">${escapeHtml(group.name)}</option>`;
   });
   
   groupSelect.innerHTML = html;
@@ -1775,7 +1789,7 @@ function updateGroupSelect() {
  */
 async function handleGroupSelectChange() {
   const groupId = groupSelect.value || null;
-  const group = allGroups.find(g => g.id === groupId);
+  const group = allGroups.find(g => g.groupId === groupId);
   
   if (currentDocId) {
     const doc = await storageManager.getDraft(currentDocId);
@@ -1884,13 +1898,33 @@ function renderCurrentTags() {
  */
 async function saveDocumentTags() {
   if (currentDocId) {
-    const doc = await storageManager.getDraft(currentDocId);
-    if (doc) {
-      doc.tags = currentTags;
-      await storageManager.saveDraft(doc);
-      await loadSavedDocuments();
-      updateTagsSidebar();
+    // Capture the latest content from the editor to avoid losing unsaved changes
+    const editorContent = markdownEditor.value;
+    
+    // Use the updateTags method which properly updates both tags array and frontmatter,
+    // passing the current editor content so it doesn't have to fetch potentially stale data
+    const updatedDoc = await storageManager.updateTags(currentDocId, currentTags, editorContent);
+    
+    // Update our in-memory content representation but avoid overwriting the editor value
+    // to preserve cursor position and any unsaved edits
+    if (updatedDoc && typeof updatedDoc.content === 'string') {
+      currentContent = updatedDoc.content;
+      // Only update editor if content actually changed (frontmatter was added/modified)
+      if (markdownEditor.value !== updatedDoc.content) {
+        const cursorPosition = markdownEditor.selectionStart;
+        markdownEditor.value = updatedDoc.content;
+        // Try to restore cursor position if possible
+        if (cursorPosition <= updatedDoc.content.length) {
+          markdownEditor.setSelectionRange(cursorPosition, cursorPosition);
+        }
+      }
     }
+    
+    // Re-render the preview from the current content
+    renderPreview();
+    
+    await loadSavedDocuments();
+    updateTagsSidebar();
   }
 }
 
@@ -2088,7 +2122,7 @@ async function createGroup() {
   const selectedColor = groupModal?.querySelector('.color-option.selected');
   
   const group = {
-    id: 'group_' + Date.now(),
+    groupId: 'group_' + Date.now(),
     name: name,
     color: selectedColor?.dataset.color || '#4A90D9',
     icon: '📁',
@@ -2115,7 +2149,7 @@ async function createGroup() {
  * Rename a group
  */
 async function renameGroup(groupId) {
-  const group = allGroups.find(g => g.id === groupId);
+  const group = allGroups.find(g => g.groupId === groupId);
   if (!group) return;
   
   const newName = prompt('Enter new group name:', group.name);
@@ -2154,7 +2188,7 @@ async function renameGroup(groupId) {
  * Delete a group
  */
 async function deleteGroup(groupId) {
-  const group = allGroups.find(g => g.id === groupId);
+  const group = allGroups.find(g => g.groupId === groupId);
   if (!group) return;
   
   const docsInGroup = savedDocuments.filter(d => d.groupId === groupId).length;
