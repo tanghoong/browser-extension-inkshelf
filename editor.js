@@ -227,6 +227,9 @@ function setupEventListeners() {
     }
   });
   
+  // Scroll timeout for synchronized scrolling (declare once)
+  let scrollTimeout;
+  
   // Auto-save on content change
   if (markdownEditor) {
     markdownEditor.addEventListener('input', handleContentChange);
@@ -248,8 +251,8 @@ function setupEventListeners() {
       }
     });
   }
+  
   // Synchronized scrolling for preview panel
-  let scrollTimeout;
   if (previewPanel) {
     previewPanel.addEventListener('scroll', () => {
       if (viewMode === 'split' && !isScrollSyncing) {

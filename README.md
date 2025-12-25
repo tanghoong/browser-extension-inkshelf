@@ -45,6 +45,13 @@ InkShelf solves this by acting as a **middle layer**:
 * 💾 **Offline Backup** — Export/import all documents as ZIP
 * 🔄 **Offline/Online Sync** — Changes queue when offline, sync when online
 
+### AI Features (v2.0) — BYOK (Bring Your Own Key)
+* 🤖 **AI-Powered Content Polish** — Clean and format captured articles
+* ✍️ **Help Me Write** — Transform content into well-structured articles with English translation
+* 🔑 **Multiple Providers** — Support for OpenAI, DeepSeek, or custom endpoints
+* ⚡ **Rate Limiting** — Built-in rate limiting to prevent excessive API usage
+* 🔐 **Secure Storage** — API keys stored locally in Chrome's secure storage
+
 ---
 
 ## How It Works
@@ -105,7 +112,39 @@ Default mode: **Preview (read‑only)**
 
 ---
 
-### 5. Backup & Restore
+### 5. AI Features — BYOK (Bring Your Own Key)
+
+InkShelf includes AI-powered features that help you polish and transform captured content. You bring your own API key.
+
+**Setup**:
+1. Go to Settings → AI Features
+2. Enable AI Features
+3. Select your provider (OpenAI, DeepSeek, or Custom)
+4. Enter your API key
+5. Select a model
+
+**Help Me Write**:
+* Click the "Help me write" button in the editor
+* AI will transform your content into a well-structured article
+* Supports automatic translation to English
+* Preview the result before applying
+* Choose to replace content or append to bottom
+
+**Rate Limiting**:
+* Maximum 5 requests per minute
+* Prevents excessive API usage
+* Countdown timer shows when next request is allowed
+
+**Supported Providers**:
+| Provider | Models | Endpoint |
+|----------|--------|----------|
+| OpenAI | GPT-4o, GPT-4o-mini, GPT-4-turbo, GPT-3.5-turbo | api.openai.com |
+| DeepSeek | deepseek-chat, deepseek-coder | api.deepseek.com |
+| Custom | Any OpenAI-compatible | Your endpoint |
+
+---
+
+### 6. Backup & Restore
 
 **Export All Documents**:
 1. Go to Settings → Backup & Restore
@@ -123,7 +162,7 @@ Default mode: **Preview (read‑only)**
 
 ---
 
-### 6. Drag & Drop Markdown Files
+### 7. Drag & Drop Markdown Files
 
 * Drag a `.md` file into the browser window
 * InkShelf automatically opens it in a new editor tab
@@ -344,7 +383,8 @@ If issues occur, restore from automatic backup:
 * **Libraries**: 
   * marked.js (Markdown rendering)
   * Readability.js (Content extraction)
-  * JSZip (Backup/restore)
+  * JSZip (Backup/restore, optional)
+* **AI Integration**: OpenAI, DeepSeek, or any OpenAI-compatible API (BYOK)
 * **Cloud Backend**: Node.js API (see [BACKEND_API.md](BACKEND_API.md))
 
 ---
@@ -352,8 +392,8 @@ If issues occur, restore from automatic backup:
 ## Installation (Development)
 
 ```bash
-git clone https://github.com/nicholaslwjl/inkshelf-extension.git
-cd inkshelf-extension
+git clone https://github.com/tanghoong/browser-extension-inkshelf.git
+cd browser-extension-inkshelf
 ```
 
 1. Open Chrome
@@ -367,25 +407,25 @@ cd inkshelf-extension
 ## File Structure
 
 ```
-inkshelf-extension/
+browser-extension-inkshelf/
 ├── manifest.json        # Extension manifest
 ├── background.js        # Service worker
 ├── content.js           # Page content extraction
 ├── popup.html/js        # Extension popup
 ├── editor.html/js/css   # Main editor interface
 ├── settings.html/js     # Settings page
+├── config.js            # Configuration constants
 ├── storage.js           # IndexedDB management
 ├── sync.js              # Cloud sync module (v2.0)
 ├── auth.js              # Authentication module (v2.0)
 ├── backup.js            # Backup/restore module (v2.0)
-├── groups.js            # Group management (v2.0)
-├── tags.js              # Tag management (v2.0)
+├── ai-manager.js        # AI API integration (v2.0)
 ├── file-handler.js      # .md file drop handling
 ├── icons/               # Extension icons
 ├── libs/                # Third-party libraries
 │   ├── marked.min.js
 │   ├── Readability.js
-│   └── jszip.min.js     # (v2.0)
+│   └── jszip.min.js     # (optional, for ZIP backup)
 ├── README.md            # This file
 ├── BACKEND_API.md       # API specification for backend
 ├── PROJECT_SUMMARY.md   # Implementation details
@@ -419,12 +459,15 @@ const CONFIG = {
 - [x] Cloud sync
 - [x] Offline backup/restore
 - [x] Data migration from v1.x
+- [x] AI-powered content polishing (BYOK)
+- [x] Multiple AI provider support (OpenAI, DeepSeek, Custom)
 
 ### v2.1 (Planned)
 - [ ] Keyboard shortcuts configuration
 - [ ] Export presets (Obsidian / Hugo)
 - [ ] Bulk operations (move, tag, delete)
 - [ ] Search within document content
+- [ ] AI prompt customization
 
 ### v3.0 (Future)
 - [ ] End-to-end encryption
