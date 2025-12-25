@@ -374,13 +374,16 @@ class StorageManager {
    * Update document tags
    * @param {string} docId - Document ID
    * @param {string[]} tags - Array of tags
+   * @param {string} currentContent - Optional current content to avoid fetching stale data
    */
-  async updateTags(docId, tags) {
+  async updateTags(docId, tags, currentContent = null) {
     const draft = await this.getDraft(docId);
     if (draft) {
       draft.tags = tags;
+      // Use provided current content if available, otherwise use draft content
+      const contentToUpdate = currentContent !== null ? currentContent : draft.content;
       // Also update frontmatter in content
-      draft.content = this._updateFrontmatterTags(draft.content, tags);
+      draft.content = this._updateFrontmatterTags(contentToUpdate, tags);
       await this.saveDraft(draft);
     }
     return draft;

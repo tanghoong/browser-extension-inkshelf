@@ -94,11 +94,14 @@ async function initializeEditor(data) {
   
   // Check for existing draft in session storage
   const sessionContent = storageManager.getFromSession(currentDocId);
+  let savedDraft = null;
   if (sessionContent) {
     currentContent = sessionContent;
+    // Still fetch the draft to get metadata
+    savedDraft = await storageManager.getDraft(currentDocId);
   } else {
     // Check IndexedDB for existing draft
-    const savedDraft = await storageManager.getDraft(currentDocId);
+    savedDraft = await storageManager.getDraft(currentDocId);
     if (savedDraft) {
       currentContent = savedDraft.content;
     }
@@ -114,8 +117,9 @@ async function initializeEditor(data) {
   // Render preview
   renderPreview();
   
-  // Save to IndexedDB
+  // Save to IndexedDB, preserving existing metadata if available
   const savedDoc = await storageManager.saveDraft({
+    ...savedDraft,  // Preserve existing metadata (groupId, starred, syncedAt, etc.)
     docId: currentDocId,
     content: currentContent,
     title: currentTitle,
@@ -1894,15 +1898,30 @@ function renderCurrentTags() {
  */
 async function saveDocumentTags() {
   if (currentDocId) {
-    // Use the updateTags method which properly updates both tags array and frontmatter
-    const updatedDoc = await storageManager.updateTags(currentDocId, currentTags);
+    // Capture the latest content from the editor to avoid losing unsaved changes
+    const editorContent = markdownEditor.value;
     
-    // Use the returned document to update content
-    if (updatedDoc) {
+    // Use the updateTags method which properly updates both tags array and frontmatter,
+    // passing the current editor content so it doesn't have to fetch potentially stale data
+    const updatedDoc = await storageManager.updateTags(currentDocId, currentTags, editorContent);
+    
+    // Update our in-memory content representation but avoid overwriting the editor value
+    // to preserve cursor position and any unsaved edits
+    if (updatedDoc && typeof updatedDoc.content === 'string') {
       currentContent = updatedDoc.content;
-      markdownEditor.value = currentContent;
-      renderPreview();
+      // Only update editor if content actually changed (frontmatter was added/modified)
+      if (markdownEditor.value !== updatedDoc.content) {
+        const cursorPosition = markdownEditor.selectionStart;
+        markdownEditor.value = updatedDoc.content;
+        // Try to restore cursor position if possible
+        if (cursorPosition <= updatedDoc.content.length) {
+          markdownEditor.setSelectionRange(cursorPosition, cursorPosition);
+        }
+      }
     }
+    
+    // Re-render the preview from the current content
+    renderPreview();
     
     await loadSavedDocuments();
     updateTagsSidebar();
