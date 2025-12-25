@@ -2,22 +2,16 @@
 
 document.addEventListener('DOMContentLoaded', () => {
   const captureClean = document.getElementById('captureClean');
-  const captureSelection = document.getElementById('captureSelection');
-  const captureSnapshot = document.getElementById('captureSnapshot');
+  const openDashboard = document.getElementById('openDashboard');
   
   // Capture clean article
   captureClean.addEventListener('click', () => {
     captureCurrentPage('clean');
   });
   
-  // Capture selection only
-  captureSelection.addEventListener('click', () => {
-    captureCurrentPage('selection');
-  });
-  
-  // Capture page snapshot
-  captureSnapshot.addEventListener('click', () => {
-    captureCurrentPage('snapshot');
+  // Open InkShelf dashboard
+  openDashboard.addEventListener('click', () => {
+    openDashboardPage();
   });
 });
 
@@ -50,5 +44,18 @@ async function captureCurrentPage(mode) {
     window.close();
   } catch (error) {
     console.error('Failed to capture page:', error);
+  }
+}
+
+/**
+ * Open InkShelf dashboard (editor without content)
+ */
+async function openDashboardPage() {
+  try {
+    const editorUrl = chrome.runtime.getURL('editor.html');
+    await chrome.tabs.create({ url: editorUrl, active: true });
+    window.close();
+  } catch (error) {
+    console.error('Failed to open dashboard:', error);
   }
 }

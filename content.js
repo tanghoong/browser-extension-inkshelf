@@ -4,9 +4,13 @@
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'CAPTURE_PAGE') {
-    capturePage(message.mode);
+    capturePage(message.mode).then(() => {
+      sendResponse({ success: true });
+    }).catch((error) => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Keep channel open for async response
   }
-  return true;
 });
 
 /**

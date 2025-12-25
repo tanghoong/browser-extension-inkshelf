@@ -7,19 +7,17 @@
   <link rel="stylesheet" href="editor.css">
 </head>
 <body>
-  <!-- Sidebar Toggle (visible when collapsed) -->
-  <button id="sidebarToggleFloat" class="sidebar-toggle-float" style="display: none;" title="Show sidebar">
+  <!-- Left Sidebar Toggle (visible when collapsed) -->
+  <button id="sidebarToggleFloat" class="sidebar-toggle-float" style="display: none;" title="Show/hide left sidebar">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <line x1="3" y1="12" x2="21" y2="12"></line>
-      <line x1="3" y1="6" x2="21" y2="6"></line>
-      <line x1="3" y1="18" x2="21" y2="18"></line>
+      <polyline points="9 18 15 12 9 6"></polyline>
     </svg>
   </button>
 
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <h2>My Documents</h2>
+      <h2>InkShelf</h2>
       <button id="sidebarToggle" class="btn-icon" title="Toggle sidebar">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="3" y1="12" x2="21" y2="12"></line>
@@ -90,6 +88,30 @@
       <span id="wordCount">0 words</span>
     </footer>
   </div>
+
+  <!-- Right Sidebar (Reserved for future features) -->
+  <aside class="sidebar-right" id="sidebarRight">
+    <div class="sidebar-header">
+      <h2>Tools</h2>
+      <button id="sidebarRightToggle" class="btn-icon" title="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="sidebar-content">
+      <p class="empty-state">Features coming soon...</p>
+    </div>
+  </aside>
+
+  <!-- Right Sidebar Toggle (visible when collapsed) -->
+  <button id="sidebarRightToggleFloat" class="sidebar-right-toggle-float" style="display: none;" title="Show/hide right sidebar">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="15 18 9 12 15 6"></polyline>
+    </svg>
+  </button>
   
   <!-- Drop Zone Overlay -->
   <div id="dropZone" class="drop-zone" style="display: none;">

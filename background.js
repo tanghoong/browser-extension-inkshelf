@@ -25,18 +25,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
     case 'CAPTURE_CONTENT':
       handleCaptureContent(message.data, sender.tab);
+      sendResponse({ success: true });
       break;
     
     case 'OPEN_EDITOR':
       openEditorTab(message.data);
+      sendResponse({ success: true });
       break;
     
     case 'EDITOR_CLOSED':
       handleEditorClosed(message.tabId);
+      sendResponse({ success: true });
       break;
     
     case 'GET_TAB_STATE':
       sendResponse({ editorTabs: Array.from(editorTabs.entries()) });
+      break;
+    
+    default:
+      sendResponse({ success: false, error: 'Unknown message type' });
       break;
   }
   

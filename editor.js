@@ -33,6 +33,9 @@ const sidebarToggle = document.getElementById('sidebarToggle');
 const sidebarToggleFloat = document.getElementById('sidebarToggleFloat');
 const newDocBtn = document.getElementById('newDocBtn');
 const documentList = document.getElementById('documentList');
+const sidebarRight = document.getElementById('sidebarRight');
+const sidebarRightToggle = document.getElementById('sidebarRightToggle');
+const sidebarRightToggleFloat = document.getElementById('sidebarRightToggleFloat');
 
 // Initialize editor
 document.addEventListener('DOMContentLoaded', () => {
@@ -53,7 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'INIT_EDITOR') {
     initializeEditor(message.data);
+    sendResponse({ success: true });
   }
+  return true;
 });
 
 /**
@@ -116,6 +121,10 @@ function setupEventListeners() {
   sidebarToggleFloat.addEventListener('click', toggleSidebar);
   newDocBtn.addEventListener('click', createNewDocument);
   
+  // Right Sidebar
+  sidebarRightToggle.addEventListener('click', toggleRightSidebar);
+  sidebarRightToggleFloat.addEventListener('click', toggleRightSidebar);
+  
   // Document actions
   saveBtn.addEventListener('click', saveDocument);
   downloadBtn.addEventListener('click', downloadMarkdown);
@@ -132,16 +141,23 @@ function setupEventListeners() {
     }
   });
   
-  // Synchronized scrolling in split mode
+  // Synchronized scrolling in split mode with debouncing
+  let scrollTimeout;
   previewPanel.addEventListener('scroll', () => {
     if (viewMode === 'split' && !isScrollSyncing) {
-      syncScroll('preview');
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        syncScroll('preview');
+      }, 10);
     }
   });
   
   markdownEditor.addEventListener('scroll', () => {
     if (viewMode === 'split' && !isScrollSyncing) {
-      syncScroll('edit');
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        syncScroll('edit');
+      }, 10);
     }
   });
   
@@ -222,36 +238,60 @@ function toggleSidebar() {
 }
 
 /**
+ * Toggle right sidebar visibility
+ */
+function toggleRightSidebar() {
+  const isCollapsed = sidebarRight.classList.toggle('collapsed');
+  
+  // Show/hide floating toggle button
+  if (isCollapsed) {
+    sidebarRightToggleFloat.style.display = 'flex';
+  } else {
+    sidebarRightToggleFloat.style.display = 'none';
+  }
+}
+
+/**
  * Synchronize scroll position between edit and preview panels
  * @param {string} source - Which panel triggered the scroll ('edit' or 'preview')
  */
 function syncScroll(source) {
   isScrollSyncing = true;
   
-  if (source === 'edit') {
-    // Calculate edit panel scroll percentage
-    const editScrollTop = markdownEditor.scrollTop;
-    const editScrollHeight = markdownEditor.scrollHeight - markdownEditor.clientHeight;
-    const scrollPercentage = editScrollHeight > 0 ? editScrollTop / editScrollHeight : 0;
+  requestAnimationFrame(() => {
+    if (source === 'edit') {
+      // Calculate edit panel scroll percentage
+      const editScrollTop = markdownEditor.scrollTop;
+      const editScrollHeight = markdownEditor.scrollHeight - markdownEditor.clientHeight;
+      const scrollPercentage = editScrollHeight > 0 ? editScrollTop / editScrollHeight : 0;
+      
+      // Apply to preview panel with smooth scroll
+      const previewScrollHeight = previewPanel.scrollHeight - previewPanel.clientHeight;
+      const targetScroll = scrollPercentage * previewScrollHeight;
+      previewPanel.scrollTo({
+        top: targetScroll,
+        behavior: 'auto'
+      });
+    } else if (source === 'preview') {
+      // Calculate preview panel scroll percentage
+      const previewScrollTop = previewPanel.scrollTop;
+      const previewScrollHeight = previewPanel.scrollHeight - previewPanel.clientHeight;
+      const scrollPercentage = previewScrollHeight > 0 ? previewScrollTop / previewScrollHeight : 0;
+      
+      // Apply to edit panel with smooth scroll
+      const editScrollHeight = markdownEditor.scrollHeight - markdownEditor.clientHeight;
+      const targetScroll = scrollPercentage * editScrollHeight;
+      markdownEditor.scrollTo({
+        top: targetScroll,
+        behavior: 'auto'
+      });
+    }
     
-    // Apply to preview panel
-    const previewScrollHeight = previewPanel.scrollHeight - previewPanel.clientHeight;
-    previewPanel.scrollTop = scrollPercentage * previewScrollHeight;
-  } else if (source === 'preview') {
-    // Calculate preview panel scroll percentage
-    const previewScrollTop = previewPanel.scrollTop;
-    const previewScrollHeight = previewPanel.scrollHeight - previewPanel.clientHeight;
-    const scrollPercentage = previewScrollHeight > 0 ? previewScrollTop / previewScrollHeight : 0;
-    
-    // Apply to edit panel
-    const editScrollHeight = markdownEditor.scrollHeight - markdownEditor.clientHeight;
-    markdownEditor.scrollTop = scrollPercentage * editScrollHeight;
-  }
-  
-  // Reset flag after a short delay
-  setTimeout(() => {
-    isScrollSyncing = false;
-  }, 50);
+    // Reset flag after animation frame
+    setTimeout(() => {
+      isScrollSyncing = false;
+    }, 100);
+  });
 }
 
 /**
@@ -400,36 +440,70 @@ function toggleTheme() {
 function setupDragAndDrop() {
   let dragCounter = 0;
   
-  // Prevent default drag behaviors
-  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    document.body.addEventListener(eventName, preventDefaults, false);
-  });
-  
-  // Track drag enter/leave with counter to prevent flickering
+  // Handle drag enter - only show drop zone for external files
   document.body.addEventListener('dragenter', (e) => {
+    // Check if this is an internal document drag
+    if (isInternalDocumentDrag(e)) {
+      return;
+    }
+    
     dragCounter++;
     if (dragCounter === 1) {
       dropZone.style.display = 'flex';
     }
   }, false);
   
+  // Handle drag over - only for external files
+  document.body.addEventListener('dragover', (e) => {
+    // Check if this is an internal document drag
+    if (isInternalDocumentDrag(e)) {
+      return;
+    }
+    
+    e.preventDefault();
+    e.stopPropagation();
+  }, false);
+  
+  // Handle drag leave
   document.body.addEventListener('dragleave', (e) => {
+    // Check if this is an internal document drag
+    if (isInternalDocumentDrag(e)) {
+      return;
+    }
+    
     dragCounter--;
     if (dragCounter === 0) {
       dropZone.style.display = 'none';
     }
   }, false);
   
-  // Handle dropped files
+  // Handle dropped files - only for external files
   document.body.addEventListener('drop', (e) => {
+    // Check if this is an internal document drag
+    if (isInternalDocumentDrag(e)) {
+      return;
+    }
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
     dragCounter = 0;
     dropZone.style.display = 'none';
-    handleDrop(e);
+    handleFileDrop(e);
   }, false);
 }
 
 /**
- * Prevent default drag behaviors
+ * Check if drag event is from internal document dragging
+ */
+function isInternalDocumentDrag(e) {
+  // Check if dataTransfer contains our document identifier
+  const types = e.dataTransfer.types;
+  return types.includes('application/inkshelf-document');
+}
+
+/**
+ * Prevent default drag behaviors (removed - now handled conditionally)
  */
 function preventDefaults(e) {
   e.preventDefault();
@@ -437,9 +511,9 @@ function preventDefaults(e) {
 }
 
 /**
- * Handle file drop
+ * Handle file drop (external .md files)
  */
-async function handleDrop(e) {
+async function handleFileDrop(e) {
   const dt = e.dataTransfer;
   const files = dt.files;
   
@@ -528,8 +602,14 @@ function escapeHtml(text) {
  */
 async function loadSavedDocuments() {
   savedDocuments = await storageManager.getAllDrafts();
-  // Sort by updatedAt descending (most recent first)
-  savedDocuments.sort((a, b) => (b.updatedAt || b.timestamp) - (a.updatedAt || a.timestamp));
+  // Sort: starred first, then by updatedAt descending (most recent first)
+  savedDocuments.sort((a, b) => {
+    // Starred documents always come first
+    if (a.starred && !b.starred) return -1;
+    if (!a.starred && b.starred) return 1;
+    // Within same starred status, sort by date
+    return (b.updatedAt || b.timestamp) - (a.updatedAt || a.timestamp);
+  });
   renderDocumentList();
 }
 
@@ -575,19 +655,199 @@ function renderDocumentList() {
       item.classList.add('active');
     }
     
+    // Make item draggable
+    item.draggable = true;
+    item.dataset.docId = doc.docId;
+    
     const timeAgo = formatRelativeTime(doc.updatedAt || doc.timestamp);
+    const starIcon = doc.starred ? '\u2605' : '\u2606';
+    const starClass = doc.starred ? 'starred' : '';
+    const starIndicator = doc.starred ? '<span class="star-indicator" title="Starred">★</span>' : '';
     
     item.innerHTML = `
-      <div class="document-item-title">${escapeHtml(doc.title)}</div>
-      <div class="document-item-meta">${timeAgo}</div>
+      <div class="document-item-content">
+        <div class="document-item-header">
+          ${starIndicator}
+          <div class="document-item-title">${escapeHtml(doc.title)}</div>
+        </div>
+        <div class="document-item-meta">${timeAgo}</div>
+      </div>
+      <div class="document-item-menu">
+        <button class="document-menu-btn" title="More options">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="1"></circle>
+            <circle cx="12" cy="5" r="1"></circle>
+            <circle cx="12" cy="19" r="1"></circle>
+          </svg>
+        </button>
+        <div class="document-menu-dropdown">
+          <button class="menu-item star-btn ${starClass}" data-doc-id="${doc.docId}">
+            <span class="star-icon">${starIcon}</span>
+            <span>${doc.starred ? 'Unstar' : 'Star'}</span>
+          </button>
+          <button class="menu-item delete-btn" data-doc-id="${doc.docId}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            <span>Delete</span>
+          </button>
+        </div>
+      </div>
     `;
     
-    item.addEventListener('click', () => {
+    // Click on item to load document
+    const contentArea = item.querySelector('.document-item-content');
+    contentArea.addEventListener('click', () => {
       loadDocument(doc.docId);
     });
     
+    // Menu button toggle
+    const menuBtn = item.querySelector('.document-menu-btn');
+    const menuDropdown = item.querySelector('.document-menu-dropdown');
+    
+    menuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Close other open menus
+      document.querySelectorAll('.document-menu-dropdown.show').forEach(menu => {
+        if (menu !== menuDropdown) {
+          menu.classList.remove('show');
+        }
+      });
+      menuDropdown.classList.toggle('show');
+    });
+    
+    // Star button
+    const starBtn = item.querySelector('.star-btn');
+    starBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await toggleStarDocument(doc.docId);
+      menuDropdown.classList.remove('show');
+    });
+    
+    // Delete button
+    const deleteBtn = item.querySelector('.delete-btn');
+    deleteBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await deleteDocumentFromList(doc.docId);
+      menuDropdown.classList.remove('show');
+    });
+    
+    // Drag event handlers
+    item.addEventListener('dragstart', handleDragStart);
+    item.addEventListener('dragend', handleDragEnd);
+    
     documentList.appendChild(item);
   });
+  
+  // Close menus when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.document-item-menu')) {
+      document.querySelectorAll('.document-menu-dropdown.show').forEach(menu => {
+        menu.classList.remove('show');
+      });
+    }
+  });
+  
+  // Setup trash zone if not already created
+  setupTrashZone();
+}
+
+/**
+ * Setup trash zone for drag-and-drop delete
+ */
+function setupTrashZone() {
+  let trashZone = document.getElementById('trashZone');
+  
+  if (!trashZone) {
+    trashZone = document.createElement('div');
+    trashZone.id = 'trashZone';
+    trashZone.className = 'trash-zone';
+    trashZone.innerHTML = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        <line x1="10" y1="11" x2="10" y2="17"></line>
+        <line x1="14" y1="11" x2="14" y2="17"></line>
+      </svg>
+      <span>Drag here to trash</span>
+    `;
+    sidebar.appendChild(trashZone);
+    
+    // Trash zone drag events
+    trashZone.addEventListener('dragover', handleTrashDragOver);
+    trashZone.addEventListener('dragleave', handleTrashDragLeave);
+    trashZone.addEventListener('drop', handleTrashDrop);
+  }
+}
+
+let draggedDocId = null;
+
+/**
+ * Handle drag start
+ */
+function handleDragStart(e) {
+  draggedDocId = e.target.dataset.docId;
+  e.target.classList.add('dragging');
+  
+  // Set specific identifier for document dragging
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('application/inkshelf-document', draggedDocId);
+  e.dataTransfer.setData('text/plain', draggedDocId);
+  
+  // Show trash zone
+  const trashZone = document.getElementById('trashZone');
+  if (trashZone) {
+    trashZone.classList.add('active');
+  }
+}
+
+/**
+ * Handle drag end
+ */
+function handleDragEnd(e) {
+  e.target.classList.remove('dragging');
+  
+  // Hide trash zone
+  const trashZone = document.getElementById('trashZone');
+  if (trashZone) {
+    trashZone.classList.remove('active');
+    trashZone.classList.remove('drag-over');
+  }
+  
+  draggedDocId = null;
+}
+
+/**
+ * Handle drag over trash zone
+ */
+function handleTrashDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+
+/**
+ * Handle drag leave trash zone
+ */
+function handleTrashDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+/**
+ * Handle drop on trash zone
+ */
+async function handleTrashDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.currentTarget.classList.remove('drag-over');
+  
+  // Verify this is a document drag
+  const docId = e.dataTransfer.getData('application/inkshelf-document');
+  
+  if (docId && draggedDocId) {
+    await deleteDocumentFromList(draggedDocId);
+  }
 }
 
 /**
@@ -600,6 +860,45 @@ async function loadDocument(docId) {
     deleteBtn.style.display = 'inline-block';
     renderDocumentList();
   }
+}
+
+/**
+ * Toggle star status of a document
+ */
+async function toggleStarDocument(docId) {
+  const doc = await storageManager.getDraft(docId);
+  if (doc) {
+    doc.starred = !doc.starred;
+    await storageManager.saveDraft(doc);
+    await loadSavedDocuments();
+  }
+}
+
+/**
+ * Delete document from list
+ */
+async function deleteDocumentFromList(docId) {
+  if (!confirm('Are you sure you want to delete this document?')) {
+    return;
+  }
+  
+  await storageManager.deleteDraft(docId);
+  
+  // If deleting current document, create new one
+  if (docId === currentDocId) {
+    const newDocId = StorageManager.generateTempDocId();
+    currentDocId = newDocId;
+    currentContent = '';
+    currentTitle = 'Untitled';
+    currentUrl = '';
+    markdownEditor.value = '';
+    docTitle.textContent = currentTitle;
+    sourceUrl.textContent = '';
+    renderPreview();
+    deleteBtn.style.display = 'none';
+  }
+  
+  await loadSavedDocuments();
 }
 
 /**

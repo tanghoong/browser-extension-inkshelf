@@ -59,7 +59,8 @@ class StorageManager {
         mode: draft.mode || 'clean',
         timestamp: draft.timestamp || Date.now(),
         updatedAt: Date.now(),
-        status: 'draft'
+        status: 'draft',
+        starred: draft.starred !== undefined ? draft.starred : false
       };
       
       const request = objectStore.put(draftData);
