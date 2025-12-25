@@ -136,17 +136,22 @@ function captureSnapshot() {
 function htmlToMarkdown(html, title = '') {
   let markdown = '';
   
-  // Add Obsidian-style frontmatter
+  // Add YAML frontmatter with consistent format
   if (title) {
-    const now = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const isoTimestamp = now.toISOString();
     const url = window.location.href;
     const domain = new URL(url).hostname;
     
     markdown += '---\n';
     markdown += `title: "${title.replace(/"/g, '\\"')}"\n`;
-    markdown += `date: ${now}\n`;
+    markdown += `created_at: ${isoTimestamp}\n`;
+    markdown += `updated_at: ${isoTimestamp}\n`;
+    markdown += `tags:\n`;
+    markdown += `  - web-capture\n`;
+    markdown += `  - ${domain}\n`;
     markdown += `source: ${url}\n`;
-    markdown += `tags:\n  - web-capture\n  - ${domain}\n`;
+    markdown += `description: Article captured from ${domain}\n`;
     markdown += '---\n\n';
     markdown += `# ${title}\n\n`;
   }

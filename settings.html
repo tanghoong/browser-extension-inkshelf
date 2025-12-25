@@ -6,22 +6,34 @@
   <title>InkShelf Settings</title>
   <link rel="stylesheet" href="editor.css">
   <style>
+    /* Override editor.css body styles for settings page */
+    body {
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      height: auto !important;
+      min-height: 100vh;
+      display: block !important;
+      padding: 0;
+      margin: 0;
+    }
+
     .settings-container {
-      max-width: 800px;
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 24px;
+      padding: 80px 24px 40px 24px; /* Top padding to account for fixed back button */
     }
 
     .settings-header {
-      padding: 24px 0;
-      border-bottom: 1px solid var(--border-color);
-      margin-bottom: 24px;
+      padding: 0 0 24px 0;
+      border-bottom: 2px solid var(--border-color);
+      margin-bottom: 32px;
     }
 
     .settings-header h1 {
-      font-size: 24px;
+      font-size: 28px;
       margin: 0 0 8px 0;
       color: var(--text-primary);
+      font-weight: 700;
     }
 
     .settings-header p {
@@ -31,26 +43,38 @@
     }
 
     .settings-section {
-      margin-bottom: 32px;
+      margin-bottom: 48px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
 
     .settings-section h2 {
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 600;
       color: var(--text-primary);
-      margin: 0 0 16px 0;
+      margin: 0 0 20px 0;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
     }
 
     .setting-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 0;
+      padding: 16px 0;
       border-bottom: 1px solid var(--border-color);
     }
 
     .setting-item:last-child {
       border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .setting-item:first-child {
+      padding-top: 0;
     }
 
     .setting-info {
@@ -113,35 +137,71 @@
       cursor: pointer;
     }
 
+    .input-control {
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 13px;
+      width: 300px;
+      font-family: monospace;
+    }
+
+    .input-control:focus {
+      outline: none;
+      border-color: #0066cc;
+    }
+
+    .input-control::placeholder {
+      color: var(--text-secondary);
+      opacity: 0.6;
+    }
+
     .back-button {
       position: fixed;
-      top: 16px;
-      left: 16px;
-      padding: 8px 16px;
+      top: 20px;
+      left: 20px;
+      padding: 10px 20px;
       background: var(--bg-primary);
       border: 1px solid var(--border-color);
-      border-radius: 6px;
+      border-radius: 8px;
       color: var(--text-primary);
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: 14px;
+      font-weight: 500;
       transition: all 0.2s;
+      z-index: 1000;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
     .back-button:hover {
       background: var(--bg-tertiary);
+      border-color: var(--text-secondary);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .back-button:active {
+      transform: translateY(0);
     }
 
     .danger-zone {
       margin-top: 48px;
-      padding-top: 24px;
-      border-top: 2px solid var(--border-color);
+      background: rgba(220, 53, 69, 0.05);
+      border: 2px solid rgba(220, 53, 69, 0.2);
+      border-radius: 12px;
+      padding: 24px;
     }
 
     .danger-zone h2 {
       color: #dc3545;
+      margin: 0 0 20px 0;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(220, 53, 69, 0.2);
     }
 
     .danger-button {
@@ -171,6 +231,59 @@
 
     .btn-small svg {
       flex-shrink: 0;
+    }
+
+    /* Responsive improvements */
+    @media (max-width: 768px) {
+      .settings-container {
+        padding: 80px 16px 24px 16px;
+      }
+
+      .settings-section {
+        padding: 16px;
+        margin-bottom: 24px;
+      }
+
+      .setting-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px 0;
+      }
+
+      .setting-control {
+        width: 100%;
+      }
+
+      .input-control {
+        width: 100%;
+        max-width: 100%;
+      }
+
+      .back-button {
+        top: 12px;
+        left: 12px;
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+
+      .settings-header h1 {
+        font-size: 24px;
+      }
+    }
+
+    /* Better focus states */
+    .toggle-switch:focus-visible,
+    .select-control:focus-visible,
+    .input-control:focus-visible,
+    .btn:focus-visible {
+      outline: 2px solid #0066cc;
+      outline-offset: 2px;
+    }
+
+    /* Smooth scrolling */
+    html {
+      scroll-behavior: smooth;
     }
   </style>
 </head>
@@ -239,6 +352,64 @@
         </div>
         <div class="setting-control">
           <div id="wordCountToggle" class="toggle-switch active"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Features Settings -->
+    <div class="settings-section">
+      <h2>AI Features (BYOK)</h2>
+      
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Enable AI Features</div>
+          <div class="setting-description">Turn on AI-powered content polishing and writing assistance</div>
+        </div>
+        <div class="setting-control">
+          <div id="aiEnabledToggle" class="toggle-switch"></div>
+        </div>
+      </div>
+
+      <div class="setting-item" id="aiProviderSetting" style="display: none;">
+        <div class="setting-info">
+          <div class="setting-label">AI Provider</div>
+          <div class="setting-description">Choose your LLM provider</div>
+        </div>
+        <div class="setting-control">
+          <select class="select-control" id="aiProviderSelect">
+            <option value="OPENAI">OpenAI</option>
+            <option value="DEEPSEEK">DeepSeek</option>
+            <option value="CUSTOM">Custom Endpoint</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="setting-item" id="aiApiKeySetting" style="display: none;">
+        <div class="setting-info">
+          <div class="setting-label">API Key</div>
+          <div class="setting-description">Your API key for the selected provider (stored locally, encrypted)</div>
+        </div>
+        <div class="setting-control">
+          <input type="password" class="input-control" id="aiApiKeyInput" placeholder="sk-..." autocomplete="off">
+        </div>
+      </div>
+
+      <div class="setting-item" id="aiModelSetting" style="display: none;">
+        <div class="setting-info">
+          <div class="setting-label">Model</div>
+          <div class="setting-description">Choose the AI model to use</div>
+        </div>
+        <div class="setting-control">
+          <select class="select-control" id="aiModelSelect">
+            <!-- Models will be populated dynamically based on provider -->
+          </select>
+        </div>
+      </div>
+
+      <div class="setting-item" id="aiRateLimitInfo" style="display: none;">
+        <div class="setting-info">
+          <div class="setting-label">Rate Limit</div>
+          <div class="setting-description">Maximum 5 requests per minute (1 every 12 seconds) to prevent excessive API usage</div>
         </div>
       </div>
     </div>
@@ -369,7 +540,9 @@
     </div>
   </div>
 
+  <script src="config.js"></script>
   <script src="storage.js"></script>
+  <script src="ai-manager.js"></script>
   <script src="backup.js"></script>
   <script src="settings.js"></script>
 </body>

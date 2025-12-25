@@ -20,11 +20,27 @@ const backupIntervalSetting = document.getElementById('backupIntervalSetting');
 const backupIntervalSelect = document.getElementById('backupIntervalSelect');
 const lastBackupTime = document.getElementById('lastBackupTime');
 
+// AI elements
+const aiEnabledToggle = document.getElementById('aiEnabledToggle');
+const aiProviderSetting = document.getElementById('aiProviderSetting');
+const aiProviderSelect = document.getElementById('aiProviderSelect');
+const aiApiKeySetting = document.getElementById('aiApiKeySetting');
+const aiApiKeyInput = document.getElementById('aiApiKeyInput');
+const aiModelSetting = document.getElementById('aiModelSetting');
+const aiModelSelect = document.getElementById('aiModelSelect');
+const aiRateLimitInfo = document.getElementById('aiRateLimitInfo');
+
 // Initialize settings on load
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Initialize AI manager first
+  if (typeof aiManager !== 'undefined') {
+    await aiManager.init();
+  }
+  
   loadSettings();
   setupEventListeners();
   loadBackupSettings();
+  await loadAISettings();
 });
 
 /**
@@ -142,6 +158,24 @@ function setupEventListeners() {
     backupIntervalSelect.addEventListener('change', () => {
       localStorage.setItem('inkshelf-backup-interval', backupIntervalSelect.value);
     });
+  }
+
+  // AI event listeners
+  if (aiEnabledToggle) {
+    aiEnabledToggle.addEventListener('click', toggleAIFeatures);
+  }
+  
+  if (aiProviderSelect) {
+    aiProviderSelect.addEventListener('change', handleAIProviderChange);
+  }
+  
+  if (aiApiKeyInput) {
+    aiApiKeyInput.addEventListener('change', saveAISettings);
+    aiApiKeyInput.addEventListener('blur', saveAISettings);
+  }
+  
+  if (aiModelSelect) {
+    aiModelSelect.addEventListener('change', saveAISettings);
   }
 
   // Delete all documents
@@ -438,3 +472,149 @@ function formatRelativeTime(timestamp) {
   
   return new Date(timestamp).toLocaleDateString();
 }
+
+/**
+ * Load AI settings from chrome.storage.local
+ */
+async function loadAISettings() {
+  if (typeof aiManager === 'undefined') return;
+  
+  try {
+    // Get current AI state
+    const enabled = aiManager.enabled;
+    const provider = aiManager.provider || 'OPENAI';
+    const apiKey = aiManager.apiKey || '';
+    const model = aiManager.model || '';
+    
+    // Update UI
+    if (aiEnabledToggle) {
+      aiEnabledToggle.classList.toggle('active', enabled);
+    }
+    
+    if (aiProviderSelect) {
+      aiProviderSelect.value = provider;
+    }
+    
+    if (aiApiKeyInput) {
+      aiApiKeyInput.value = apiKey;
+    }
+    
+    // Populate model dropdown based on provider
+    populateModelSelect(provider);
+    
+    if (aiModelSelect && model) {
+      aiModelSelect.value = model;
+    }
+    
+    // Show/hide AI settings based on enabled state
+    updateAISettingsVisibility(enabled);
+  } catch (error) {
+    console.error('Failed to load AI settings:', error);
+  }
+}
+
+/**
+ * Populate model select dropdown based on provider
+ */
+function populateModelSelect(provider) {
+  if (!aiModelSelect) return;
+  
+  const providerConfig = CONFIG.AI.PROVIDERS[provider];
+  if (!providerConfig) return;
+  
+  // Clear existing options
+  aiModelSelect.innerHTML = '';
+  
+  // Add models
+  providerConfig.models.forEach(model => {
+    const option = document.createElement('option');
+    option.value = model;
+    option.textContent = model;
+    aiModelSelect.appendChild(option);
+  });
+  
+  // Set default model
+  if (providerConfig.defaultModel) {
+    aiModelSelect.value = providerConfig.defaultModel;
+  }
+}
+
+/**
+ * Toggle AI features on/off
+ */
+async function toggleAIFeatures() {
+  const isActive = aiEnabledToggle.classList.toggle('active');
+  
+  try {
+    await aiManager.saveConfig({ enabled: isActive });
+    updateAISettingsVisibility(isActive);
+    
+    if (isActive) {
+      showNotification('AI features enabled. Configure your API key below.', 'info');
+    } else {
+      showNotification('AI features disabled.', 'info');
+    }
+  } catch (error) {
+    console.error('Failed to toggle AI features:', error);
+    showNotification('Failed to update AI settings.', 'error');
+  }
+}
+
+/**
+ * Update visibility of AI settings based on enabled state
+ */
+function updateAISettingsVisibility(enabled) {
+  const settingsToToggle = [
+    aiProviderSetting,
+    aiApiKeySetting,
+    aiModelSetting,
+    aiRateLimitInfo
+  ];
+  
+  settingsToToggle.forEach(element => {
+    if (element) {
+      element.style.display = enabled ? 'flex' : 'none';
+    }
+  });
+}
+
+/**
+ * Handle AI provider change
+ */
+async function handleAIProviderChange() {
+  const provider = aiProviderSelect.value;
+  
+  // Populate models for new provider
+  populateModelSelect(provider);
+  
+  // Save to aiManager
+  await saveAISettings();
+}
+
+/**
+ * Save AI settings
+ */
+async function saveAISettings() {
+  if (typeof aiManager === 'undefined') return;
+  
+  try {
+    const config = {
+      provider: aiProviderSelect?.value || 'OPENAI',
+      apiKey: aiApiKeyInput?.value || '',
+      model: aiModelSelect?.value || ''
+    };
+    
+    const result = await aiManager.saveConfig(config);
+    
+    if (result.success) {
+      // Don't show notification on every keystroke, only on blur or explicit save
+      console.log('AI settings saved');
+    } else {
+      showNotification('Failed to save AI settings: ' + result.error, 'error');
+    }
+  } catch (error) {
+    console.error('Failed to save AI settings:', error);
+    showNotification('Failed to save AI settings.', 'error');
+  }
+}
+

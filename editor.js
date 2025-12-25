@@ -65,6 +65,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeAutoSave();
   updateThemeLabel();
   
+  // Initialize AI Manager
+  initializeAI();
+  
   // Show empty state initially
   showEmptyState();
   
@@ -96,6 +99,7 @@ async function initializeEditor(data) {
   currentTitle = data.title || 'Untitled';
   originalTitle = currentTitle; // Store original title
   currentUrl = data.url || '';
+  const isNewCapture = data.isNewCapture || false;
   
   // Hide empty state and show document UI
   hideEmptyState();
@@ -123,6 +127,11 @@ async function initializeEditor(data) {
   // Set editor content
   markdownEditor.value = currentContent;
   
+  // Parse YAML front matter to update UI metadata
+  if (currentContent && currentContent.trim()) {
+    await parseAndUpdateMetadata(currentContent);
+  }
+  
   // Reset unsaved changes flag
   hasUnsavedChanges = false;
   updateSaveButtonVisibility();
@@ -148,6 +157,11 @@ async function initializeEditor(data) {
     if (groupSelect) {
       groupSelect.value = savedDoc.groupId || '';
     }
+  }
+  
+  // Set to preview mode for newly captured content
+  if (isNewCapture && currentContent && currentContent.trim()) {
+    setViewMode('preview');
   }
 }
 
@@ -299,6 +313,9 @@ function setupEventListeners() {
   
   // Load saved documents
   loadSavedDocuments();
+  
+  // AI Assistant event listeners
+  setupAIEventListeners();
   
   // Listen for settings changes from other tabs
   window.addEventListener('storage', (e) => {
@@ -2997,3 +3014,525 @@ loadSavedDocuments = async function() {
   updateTagsSidebar();
   filterAndRenderDocuments();
 };
+
+// ============ AI Features ============
+
+/**
+ * Initialize AI features
+ */
+async function initializeAI() {
+  if (typeof aiManager === 'undefined') {
+    console.warn('AI Manager not available');
+    return;
+  }
+  
+  try {
+    await aiManager.init();
+    
+    // Listen for AI state changes
+    aiManager.onStateChange((state) => {
+      updateAIButtonState(state.isAvailable);
+    });
+    
+    // Initial state update
+    updateAIButtonState(aiManager.isAvailable());
+  } catch (error) {
+    console.error('Failed to initialize AI:', error);
+  }
+}
+
+/**
+ * Setup AI event listeners
+ */
+function setupAIEventListeners() {
+  const aiHelpWriteBtn = document.getElementById('aiHelpWriteBtn');
+  
+  if (aiHelpWriteBtn) {
+    aiHelpWriteBtn.addEventListener('click', handleAIHelpWrite);
+  }
+}
+
+/**
+ * Update AI button state based on availability
+ */
+function updateAIButtonState(isAvailable) {
+  const aiHelpWriteBtn = document.getElementById('aiHelpWriteBtn');
+  if (aiHelpWriteBtn) {
+    aiHelpWriteBtn.disabled = !isAvailable;
+    aiHelpWriteBtn.title = isAvailable 
+      ? 'Polish and enhance content with AI' 
+      : 'Configure AI in settings to enable this feature';
+  }
+}
+
+/**
+ * Handle AI Polish operation
+ */
+async function handleAIPolish() {
+  const content = markdownEditor?.value || '';
+  const aiAssistantBtn = document.getElementById('aiAssistantBtn');
+  
+  if (!content.trim()) {
+    showToast('warning', 'Please add some content first before polishing.');
+    return;
+  }
+  
+  if (!aiManager.canMakeRequest()) {
+    const seconds = aiManager.getTimeUntilNextRequest();
+    showToast('warning', `Rate limit: Please wait ${seconds} seconds before making another request.`);
+    return;
+  }
+  
+  try {
+    // Show loading state on AI button
+    if (aiAssistantBtn) {
+      aiAssistantBtn.classList.add('loading');
+      aiAssistantBtn.disabled = true;
+    }
+    
+    // Open modal with original content
+    openAIPreviewModal('Polish Content', content, 'polish');
+    
+    // Call AI API
+    const result = await aiManager.polishContent(content);
+    
+    if (result.success) {
+      displayAIResult(result.content);
+      showToast('success', 'Content polished successfully!');
+    } else {
+      displayAIError(result.error);
+      showToast('error', 'Failed to polish content: ' + result.error);
+    }
+  } catch (error) {
+    console.error('AI Polish error:', error);
+    displayAIError(error.message || 'An unexpected error occurred');
+    showToast('error', 'An unexpected error occurred. Please try again.');
+  } finally {
+    // Remove loading state from AI button
+    if (aiAssistantBtn) {
+      aiAssistantBtn.classList.remove('loading');
+      aiAssistantBtn.disabled = false;
+    }
+  }
+}
+
+/**
+ * Auto-process captured content with AI translation and enhancement
+ */
+async function autoProcessCapturedContent() {
+  // Check if AI is available
+  if (!aiManager || !aiManager.isAvailable()) {
+    console.log('AI not available for auto-processing');
+    return;
+  }
+  
+  const content = markdownEditor?.value || '';
+  if (!content.trim()) {
+    return;
+  }
+  
+  // Check rate limit
+  if (!aiManager.canMakeRequest()) {
+    console.log('Rate limit reached, skipping auto-processing');
+    return;
+  }
+  
+  const aiHelpWriteBtn = document.getElementById('aiHelpWriteBtn');
+  
+  try {
+    // Show loading state
+    if (aiHelpWriteBtn) {
+      aiHelpWriteBtn.classList.add('processing');
+      aiHelpWriteBtn.disabled = true;
+    }
+    
+    showToast('info', 'Auto-processing captured content with AI... Translating to English...');
+    
+    // Call AI API
+    const result = await aiManager.helpWrite(content);
+    
+    if (result.success) {
+      // Replace content with AI-generated version
+      markdownEditor.value = result.content;
+      
+      // Parse front matter to update title, tags, etc.
+      await parseAndUpdateMetadata(result.content);
+      
+      // Trigger content change and preview
+      handleContentChange();
+      renderPreview();
+      
+      // Auto-save the document
+      await saveCurrentDocument();
+      
+      showToast('success', 'Content translated to English and enhanced successfully!');
+    } else {
+      showToast('warning', 'Auto-processing failed: ' + result.error + '. You can edit manually or try again.');
+    }
+  } catch (error) {
+    console.error('Auto-processing error:', error);
+    showToast('warning', 'Auto-processing failed. You can edit the content manually.');
+  } finally {
+    // Remove loading state
+    if (aiHelpWriteBtn) {
+      aiHelpWriteBtn.classList.remove('processing');
+      // Re-enable based on AI availability
+      updateAIButtonState(aiManager.isAvailable());
+    }
+  }
+}
+
+/**
+ * Handle AI Help Write operation
+ */
+async function handleAIHelpWrite() {
+  const content = markdownEditor?.value || '';
+  const aiHelpWriteBtn = document.getElementById('aiHelpWriteBtn');
+  
+  if (!content.trim()) {
+    showToast('warning', 'Please add some content first.');
+    return;
+  }
+  
+  if (!aiManager.canMakeRequest()) {
+    const seconds = aiManager.getTimeUntilNextRequest();
+    showToast('warning', `Rate limit: Please wait ${seconds} seconds before making another request.`);
+    return;
+  }
+  
+  try {
+    // Show loading state on AI button
+    if (aiHelpWriteBtn) {
+      aiHelpWriteBtn.classList.add('processing');
+      aiHelpWriteBtn.disabled = true;
+    }
+    
+    showToast('info', 'AI is processing your content... This may take 10-30 seconds.');
+    
+    // Call AI API
+    const result = await aiManager.helpWrite(content);
+    
+    if (result.success) {
+      // Replace content with AI-generated version
+      markdownEditor.value = result.content;
+      
+      // Parse front matter to update title, tags, etc.
+      await parseAndUpdateMetadata(result.content);
+      
+      // Trigger content change and preview
+      handleContentChange();
+      renderPreview();
+      
+      // Auto-save the document
+      await saveCurrentDocument();
+      
+      showToast('success', 'Content enhanced and saved successfully!');
+    } else {
+      showToast('error', 'Failed to process content: ' + result.error);
+    }
+  } catch (error) {
+    console.error('AI Help Write error:', error);
+    showToast('error', 'An unexpected error occurred. Please try again.');
+  } finally {
+    // Remove loading state from AI button
+    if (aiHelpWriteBtn) {
+      aiHelpWriteBtn.classList.remove('processing');
+      aiHelpWriteBtn.disabled = false;
+      updateAIButtonState(aiManager.isAvailable());
+    }
+  }
+}
+
+/**
+ * Parse YAML front matter and update document metadata
+ */
+async function parseAndUpdateMetadata(content) {
+  try {
+    // Extract YAML front matter
+    const frontMatterMatch = content.match(/^---\\s*\\n([\\s\\S]*?)\\n---/);
+    if (!frontMatterMatch) {
+      console.log('No front matter found');
+      return;
+    }
+    
+    const frontMatterText = frontMatterMatch[1];
+    const lines = frontMatterText.split('\\n');
+    const metadata = {};
+    let currentKey = null;
+    const tagsArray = [];
+    
+    // Parse YAML with support for arrays
+    lines.forEach(line => {
+      // Check for array items (tags)
+      const arrayMatch = line.match(/^\\s*-\\s+(.+)$/);
+      if (arrayMatch && currentKey === 'tags') {
+        tagsArray.push(arrayMatch[1].trim());
+        return;
+      }
+      
+      // Check for key: value pairs
+      const match = line.match(/^([^:]+):\\s*(.*)$/);
+      if (match) {
+        const key = match[1].trim();
+        const value = match[2].trim();
+        currentKey = key;
+        
+        if (key === 'tags' && !value) {
+          // Tags array starts on next lines
+          metadata[key] = [];
+        } else if (value) {
+          metadata[key] = value;
+        }
+      }
+    });
+    
+    // Add collected tags to metadata
+    if (tagsArray.length > 0) {
+      metadata.tags = tagsArray;
+    }
+    
+    // Update title if available
+    if (metadata.title) {
+      currentTitle = metadata.title;
+      const titleElement = document.getElementById('docTitle');
+      if (titleElement) {
+        titleElement.textContent = metadata.title;
+      }
+    }
+    
+    // Update source URL if available
+    if (metadata.source) {
+      currentUrl = metadata.source;
+      const sourceUrlElement = document.getElementById('sourceUrl');
+      if (sourceUrlElement) {
+        sourceUrlElement.textContent = metadata.source;
+        sourceUrlElement.style.display = metadata.source ? 'block' : 'none';
+      }
+    }
+    
+    // Update tags if available
+    if (metadata.tags && Array.isArray(metadata.tags)) {
+      const tagsDisplay = document.getElementById('tagsDisplay');
+      if (tagsDisplay && metadata.tags.length > 0) {
+        tagsDisplay.innerHTML = '';
+        metadata.tags.forEach(tag => {
+          const tagSpan = document.createElement('span');
+          tagSpan.className = 'tag';
+          tagSpan.innerHTML = `
+            ${escapeHtml(tag)}
+            <button class=\"tag-remove\" data-tag=\"${escapeHtml(tag)}\" title=\"Remove tag\">×</button>
+          `;
+          tagsDisplay.appendChild(tagSpan);
+          
+          // Add remove event listener
+          const removeBtn = tagSpan.querySelector('.tag-remove');
+          removeBtn.addEventListener('click', () => removeTag(tag));
+        });
+      }
+    }
+    
+    console.log('Metadata updated:', metadata);
+  } catch (error) {
+    console.error('Error parsing front matter:', error);
+  }
+}
+
+/**
+ * Open AI preview modal
+ */
+function openAIPreviewModal(title, originalContent, operation) {
+  const modal = document.getElementById('aiPreviewModal');
+  const modalTitle = document.getElementById('aiPreviewTitle');
+  const originalPreview = document.getElementById('aiPreviewOriginal');
+  const generatedPreview = document.getElementById('aiPreviewGenerated');
+  const appendBtn = document.getElementById('aiPreviewAppend');
+  const replaceBtn = document.getElementById('aiPreviewReplace');
+  
+  if (!modal) {
+    console.error('AI Preview Modal not found in DOM');
+    showToast('error', 'AI modal not available. Please refresh the page.');
+    return;
+  }
+  
+  // Set title
+  if (modalTitle) modalTitle.textContent = title;
+  
+  // Set original content (render as markdown preview)
+  if (originalPreview) {
+    try {
+      originalPreview.innerHTML = marked.parse(originalContent);
+    } catch (error) {
+      console.error('Error parsing original content:', error);
+      originalPreview.textContent = originalContent;
+    }
+  }
+  
+  // Show loading state for generated content
+  if (generatedPreview) {
+    generatedPreview.className = 'ai-preview-content ai-preview-loading';
+    generatedPreview.innerHTML = `
+      <div class="loading-spinner"></div>
+      <p>Processing your content...</p>
+      <p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">This may take 10-30 seconds</p>
+    `;
+  }
+  
+  // Disable action buttons
+  if (appendBtn) appendBtn.disabled = true;
+  if (replaceBtn) replaceBtn.disabled = true;
+  
+  // Store operation type for later use
+  modal.dataset.operation = operation;
+  modal.dataset.originalContent = originalContent;
+  
+  // Show modal with slight delay to ensure DOM is ready
+  requestAnimationFrame(() => {
+    modal.style.display = 'flex';
+    // Ensure modal is visible
+    modal.style.visibility = 'visible';
+    modal.style.opacity = '1';
+  });
+}
+
+/**
+ * Display AI result in preview modal
+ */
+function displayAIResult(content) {
+  const generatedPreview = document.getElementById('aiPreviewGenerated');
+  const appendBtn = document.getElementById('aiPreviewAppend');
+  const replaceBtn = document.getElementById('aiPreviewReplace');
+  const modal = document.getElementById('aiPreviewModal');
+  
+  if (!generatedPreview) {
+    console.error('Generated preview element not found');
+    return;
+  }
+  
+  // Store generated content
+  if (modal) modal.dataset.generatedContent = content;
+  
+  // Render generated content
+  generatedPreview.className = 'ai-preview-content';
+  try {
+    generatedPreview.innerHTML = marked.parse(content);
+  } catch (error) {
+    console.error('Error parsing generated content:', error);
+    generatedPreview.textContent = content;
+  }
+  
+  // Enable action buttons
+  if (appendBtn) appendBtn.disabled = false;
+  if (replaceBtn) replaceBtn.disabled = false;
+}
+
+/**
+ * Display AI error in preview modal
+ */
+function displayAIError(error) {
+  const generatedPreview = document.getElementById('aiPreviewGenerated');
+  const appendBtn = document.getElementById('aiPreviewAppend');
+  const replaceBtn = document.getElementById('aiPreviewReplace');
+  
+  if (!generatedPreview) {
+    console.error('Generated preview element not found');
+    return;
+  }
+  
+  // Ensure buttons stay disabled on error
+  if (appendBtn) appendBtn.disabled = true;
+  if (replaceBtn) replaceBtn.disabled = true;
+  
+  generatedPreview.className = 'ai-preview-content';
+  generatedPreview.innerHTML = `
+    <div style="color: var(--text-secondary); text-align: center; padding: 40px;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 16px; opacity: 0.5; color: #dc3545;">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <p style="font-size: 14px; font-weight: 500; margin-bottom: 8px; color: var(--text-primary);">Request Failed</p>
+      <p style="font-size: 13px; color: var(--text-secondary);">${escapeHtml(error)}</p>
+      <p style="font-size: 12px; color: var(--text-secondary); margin-top: 16px;">Please check your API key and try again.</p>
+    </div>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <p style="font-size: 14px; font-weight: 500; margin-bottom: 8px;">Request Failed</p>
+      <p style="font-size: 13px;">${error}</p>
+    </div>
+  `;
+}
+
+/**
+ * Close AI preview modal
+ */
+function closeAIPreviewModal() {
+  const modal = document.getElementById('aiPreviewModal');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.dataset.operation = '';
+    modal.dataset.originalContent = '';
+    modal.dataset.generatedContent = '';
+  }
+}
+
+/**
+ * Handle append AI content to bottom
+ */
+function handleAIAppend() {
+  const modal = document.getElementById('aiPreviewModal');
+  const generatedContent = modal?.dataset.generatedContent;
+  
+  if (!generatedContent || !markdownEditor) {
+    showToast('error', 'No content to append');
+    return;
+  }
+  
+  try {
+    const currentContent = markdownEditor.value;
+    const separator = currentContent.trim() ? '\n\n---\n\n' : '';
+    
+    markdownEditor.value = currentContent + separator + generatedContent;
+    
+    // Trigger content change handling
+    handleContentChange();
+    renderPreview();
+    
+    closeAIPreviewModal();
+    showToast('success', 'AI-generated content appended to the bottom.');
+  } catch (error) {
+    console.error('Error appending content:', error);
+    showToast('error', 'Failed to append content. Please try again.');
+  }
+}
+
+/**
+ * Handle replace content with AI content
+ */
+function handleAIReplace() {
+  const modal = document.getElementById('aiPreviewModal');
+  const generatedContent = modal?.dataset.generatedContent;
+  
+  if (!generatedContent || !markdownEditor) {
+    showToast('error', 'No content to replace');
+    return;
+  }
+  
+  // Confirm replacement
+  if (!confirm('Are you sure you want to replace the entire content with the AI-generated version?')) {
+    return;
+  }
+  
+  try {
+    markdownEditor.value = generatedContent;
+    
+    // Trigger content change handling
+    handleContentChange();
+    renderPreview();
+    
+    closeAIPreviewModal();
+    showToast('success', 'Content replaced with AI-generated version.');
+  } catch (error) {
+    console.error('Error replacing content:', error);
+    showToast('error', 'Failed to replace content. Please try again.');
+  }
+}

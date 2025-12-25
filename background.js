@@ -141,6 +141,7 @@ function handleEditorClosed(tabId) {
 function handleCaptureContent(data, tab) {
   openEditorTab({
     ...data,
-    sourceTabId: tab.id
+    sourceTabId: tab.id,
+    isNewCapture: true  // Flag to trigger auto-processing
   });
 }

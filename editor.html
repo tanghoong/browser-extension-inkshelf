@@ -219,6 +219,19 @@
           <input type="text" id="tagInput" class="tag-input" placeholder="Add tag...">
         </div>
       </div>
+      <div class="meta-ai">
+        <button id="aiHelpWriteBtn" class="btn-ai-help" title="Polish and enhance content with AI" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="7.5 4.21 12 6.81 16.5 4.21"></polyline>
+            <polyline points="7.5 19.79 7.5 14.6 3 12"></polyline>
+            <polyline points="21 12 16.5 14.6 16.5 19.79"></polyline>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+          <span>Help me write</span>
+        </button>
+      </div>
     </div>
     
     <!-- Main Content Area -->
@@ -514,6 +527,38 @@
   <!-- Toast Notifications -->
   <div class="toast-container" id="toastContainer"></div>
 
+  <!-- AI Preview Modal -->
+  <div class="modal" id="aiPreviewModal" style="display: none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h3 id="aiPreviewTitle">AI Content Preview</h3>
+        <button type="button" class="modal-close" id="aiPreviewClose">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="ai-preview-container">
+          <div class="ai-preview-section">
+            <h4>Original</h4>
+            <div class="ai-preview-content" id="aiPreviewOriginal"></div>
+          </div>
+          <div class="ai-preview-divider"></div>
+          <div class="ai-preview-section">
+            <h4>AI Generated</h4>
+            <div class="ai-preview-content ai-preview-loading" id="aiPreviewGenerated">
+              <div class="loading-spinner"></div>
+              <p>Processing...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="aiPreviewCancel">Cancel</button>
+        <button type="button" class="btn btn-secondary" id="aiPreviewAppend" disabled>Append to Bottom</button>
+        <button type="button" class="btn btn-primary" id="aiPreviewReplace" disabled>Replace Content</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="libs/marked.min.js"></script>
   <script src="config.js"></script>
@@ -521,6 +566,7 @@
   <script src="auth.js"></script>
   <script src="sync.js"></script>
   <script src="backup.js"></script>
+  <script src="ai-manager.js"></script>
   <script src="editor.js"></script>
 </body>
 </html>
