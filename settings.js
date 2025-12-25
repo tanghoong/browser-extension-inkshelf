@@ -20,11 +20,17 @@ const backupIntervalSetting = document.getElementById('backupIntervalSetting');
 const backupIntervalSelect = document.getElementById('backupIntervalSelect');
 const lastBackupTime = document.getElementById('lastBackupTime');
 
+// AI elements
+const aiToggle = document.getElementById('aiToggle');
+const aiFeaturesSection = document.getElementById('aiFeaturesSection');
+const aiStatusText = document.getElementById('aiStatusText');
+
 // Initialize settings on load
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   setupEventListeners();
   loadBackupSettings();
+  checkAICapability();
 });
 
 /**
@@ -48,6 +54,12 @@ function loadSettings() {
 
   const exportFormat = localStorage.getItem('inkshelf-exportformat') || 'markdown';
   exportFormatSelect.value = exportFormat;
+
+  // Load AI features setting
+  const aiEnabled = localStorage.getItem('inkshelf-ai-enabled') === 'true';
+  if (aiToggle) {
+    aiToggle.classList.toggle('active', aiEnabled);
+  }
 }
 
 /**
@@ -149,6 +161,14 @@ function setupEventListeners() {
 
   // Reset settings
   resetSettingsBtn.addEventListener('click', resetSettings);
+
+  // AI toggle
+  if (aiToggle) {
+    aiToggle.addEventListener('click', () => {
+      const isActive = aiToggle.classList.toggle('active');
+      localStorage.setItem('inkshelf-ai-enabled', isActive);
+    });
+  }
 }
 
 /**
@@ -437,4 +457,96 @@ function formatRelativeTime(timestamp) {
   if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
   
   return new Date(timestamp).toLocaleDateString();
+}
+
+/**
+ * Check AI API capability
+ */
+async function checkAICapability() {
+  if (!aiFeaturesSection || !aiStatusText) return;
+  
+  // Always show AI features section so users can see status
+  aiFeaturesSection.style.display = 'block';
+  
+  // Extract Chrome version
+  const chromeMatch = navigator.userAgent.match(/Chrome\/(\d+)/);
+  const chromeVersion = chromeMatch ? parseInt(chromeMatch[1]) : 0;
+  console.log('[AI Settings] Chrome version:', chromeVersion);
+  
+  try {
+    const capabilities = [];
+    
+    // Check for global constructor APIs (Chrome 138+)
+    // These are available as global constructors, not under window.ai namespace
+    
+    // Check Summarizer
+    try {
+      if (typeof Summarizer !== 'undefined' || typeof window.Summarizer !== 'undefined') {
+        const SummarizerAPI = window.Summarizer || Summarizer;
+        const availability = await SummarizerAPI.availability();
+        console.log('[AI Settings] Summarizer availability:', availability);
+        if (availability && availability !== 'unavailable' && availability !== 'no') {
+          capabilities.push('Summarizer');
+        }
+      }
+    } catch (e) {
+      console.log('[AI Settings] Summarizer check failed:', e.message);
+    }
+    
+    // Check Translator
+    try {
+      if (typeof Translator !== 'undefined' || typeof window.Translator !== 'undefined') {
+        const TranslatorAPI = window.Translator || Translator;
+        const availability = await TranslatorAPI.availability();
+        console.log('[AI Settings] Translator availability:', availability);
+        if (availability && availability !== 'unavailable' && availability !== 'no') {
+          capabilities.push('Translator');
+        }
+      }
+    } catch (e) {
+      console.log('[AI Settings] Translator check failed:', e.message);
+    }
+    
+    // Check Language Detector
+    try {
+      if (typeof LanguageDetector !== 'undefined' || typeof window.LanguageDetector !== 'undefined') {
+        const LanguageDetectorAPI = window.LanguageDetector || LanguageDetector;
+        const availability = await LanguageDetectorAPI.availability();
+        console.log('[AI Settings] Language detector availability:', availability);
+        if (availability && availability !== 'unavailable' && availability !== 'no') {
+          capabilities.push('Language Detector');
+        }
+      }
+    } catch (e) {
+      console.log('[AI Settings] Language detector check failed:', e.message);
+    }
+    
+    if (capabilities.length > 0) {
+      aiStatusText.textContent = `Available: ${capabilities.join(', ')}`;
+      aiStatusText.style.color = 'var(--success-color, #28a745)';
+    } else if (typeof Summarizer !== 'undefined' || typeof Translator !== 'undefined' || typeof LanguageDetector !== 'undefined') {
+      aiStatusText.innerHTML = `AI APIs detected but models may need downloading.<br>Check <code>chrome://components</code> for "Optimization Guide On Device Model" and click "Check for update".`;
+      aiStatusText.style.color = 'var(--warning-color, #ffc107)';
+    } else {
+      // No AI APIs found
+      let message = '';
+      if (chromeVersion < 128) {
+        message = `Chrome ${chromeVersion} detected. AI APIs require Chrome 128+. Please update your browser.`;
+      } else {
+        message = `Chrome ${chromeVersion} detected but AI APIs not available.<br><br>
+<strong>To enable Built-in AI:</strong><br>
+1. Go to <code>chrome://flags</code><br>
+2. Enable "Summarization API for Gemini Nano"<br>
+3. Enable "Translation API"<br>
+4. Enable "Language Detection API"<br>
+5. Restart Chrome`;
+      }
+      aiStatusText.innerHTML = message;
+      aiStatusText.style.color = 'var(--text-secondary)';
+    }
+  } catch (error) {
+    console.error('[AI Settings] Error checking AI capability:', error);
+    aiStatusText.textContent = 'Error checking AI availability: ' + error.message;
+    aiStatusText.style.color = 'var(--error-color, #dc3545)';
+  }
 }

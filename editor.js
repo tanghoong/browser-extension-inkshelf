@@ -49,6 +49,39 @@ const themeLabel = document.getElementById('themeLabel');
 const autoSaveToggle = document.getElementById('autoSaveToggle');
 const autoSaveLabel = document.getElementById('autoSaveLabel');
 
+// AI Features DOM elements
+const aiButtonGroup = document.getElementById('aiButtonGroup');
+const summarizeBtn = document.getElementById('summarizeBtn');
+const detectLanguageBtn = document.getElementById('detectLanguageBtn');
+const translateBtn = document.getElementById('translateBtn');
+const translateDropdownMenu = document.getElementById('translateDropdownMenu');
+const aiSummaryContainer = document.getElementById('aiSummaryContainer');
+const aiSummaryContent = document.getElementById('aiSummaryContent');
+const aiSummaryClose = document.getElementById('aiSummaryClose');
+const aiLanguageBadge = document.getElementById('aiLanguageBadge');
+const translationModal = document.getElementById('translationModal');
+const translationModalClose = document.getElementById('translationModalClose');
+const translationModalCancel = document.getElementById('translationModalCancel');
+const translationLoading = document.getElementById('translationLoading');
+const translationError = document.getElementById('translationError');
+const translationInfo = document.getElementById('translationInfo');
+const translationLangInfo = document.getElementById('translationLangInfo');
+const translationContent = document.getElementById('translationContent');
+const copyTranslationBtn = document.getElementById('copyTranslationBtn');
+const openTranslationTabBtn = document.getElementById('openTranslationTabBtn');
+
+// AI State
+let aiEnabled = false;
+let aiCapabilities = {
+  summarizer: false,
+  translator: false,
+  languageDetector: false
+};
+let currentTranslation = '';
+let detectedLanguage = '';
+// Translator cache to improve performance (key: 'source-target')
+let translatorCache = new Map();
+
 // Initialize editor
 document.addEventListener('DOMContentLoaded', () => {
   initializeTheme();
@@ -58,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeWordWrap();
   initializeAutoSave();
   updateThemeLabel();
+  checkAICapabilities();
   
   // Configure marked.js
   if (typeof marked !== 'undefined') {
@@ -266,6 +300,67 @@ function setupEventListeners() {
   window.addEventListener('storage', (e) => {
     if (e.key && e.key.startsWith('inkshelf-')) {
       applySettings();
+    }
+  });
+  
+  // AI Features Event Listeners
+  if (summarizeBtn) {
+    summarizeBtn.addEventListener('click', handleSummarize);
+  }
+  
+  if (detectLanguageBtn) {
+    detectLanguageBtn.addEventListener('click', handleDetectLanguage);
+  }
+  
+  if (translateBtn) {
+    translateBtn.addEventListener('click', () => {
+      if (translateDropdownMenu) {
+        translateDropdownMenu.classList.toggle('show');
+      }
+    });
+  }
+  
+  if (translateDropdownMenu) {
+    const translateMenuItems = translateDropdownMenu.querySelectorAll('.share-menu-item');
+    translateMenuItems.forEach(item => {
+      item.addEventListener('click', (e) => {
+        const targetLang = e.currentTarget.getAttribute('data-lang');
+        if (targetLang) {
+          handleTranslate(targetLang);
+        }
+        translateDropdownMenu.classList.remove('show');
+      });
+    });
+  }
+  
+  if (aiSummaryClose) {
+    aiSummaryClose.addEventListener('click', () => {
+      if (aiSummaryContainer) {
+        aiSummaryContainer.style.display = 'none';
+      }
+    });
+  }
+  
+  if (translationModalClose) {
+    translationModalClose.addEventListener('click', closeTranslationModal);
+  }
+  
+  if (translationModalCancel) {
+    translationModalCancel.addEventListener('click', closeTranslationModal);
+  }
+  
+  if (copyTranslationBtn) {
+    copyTranslationBtn.addEventListener('click', copyTranslationToClipboard);
+  }
+  
+  if (openTranslationTabBtn) {
+    openTranslationTabBtn.addEventListener('click', openTranslationInNewTab);
+  }
+  
+  // Close translation dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.share-dropdown') && translateDropdownMenu) {
+      translateDropdownMenu.classList.remove('show');
     }
   });
 }
@@ -2724,3 +2819,547 @@ loadSavedDocuments = async function() {
   updateTagsSidebar();
   filterAndRenderDocuments();
 };
+
+// ============ AI Features ============
+
+/**
+ * Check AI capabilities and show/hide AI buttons
+ */
+async function checkAICapabilities() {
+  console.log('[AI] Checking AI capabilities...');
+  console.log('[AI] Chrome version:', navigator.userAgent);
+  
+  // Check if AI features are enabled in settings
+  aiEnabled = localStorage.getItem('inkshelf-ai-enabled') === 'true';
+  console.log('[AI] AI enabled in settings:', aiEnabled);
+  
+  if (!aiEnabled) {
+    console.log('[AI] AI features disabled in settings, hiding buttons');
+    if (aiButtonGroup) {
+      aiButtonGroup.style.display = 'none';
+    }
+    return;
+  }
+  
+  // Check for individual AI APIs (Chrome 138+ uses global constructors)
+  const hasSummarizer = typeof Summarizer !== 'undefined' || typeof window.Summarizer !== 'undefined';
+  const hasTranslator = typeof Translator !== 'undefined' || typeof window.Translator !== 'undefined';
+  const hasLanguageDetector = typeof LanguageDetector !== 'undefined' || typeof window.LanguageDetector !== 'undefined';
+  
+  console.log('[AI] API availability:');
+  console.log('[AI] - Summarizer:', hasSummarizer);
+  console.log('[AI] - Translator:', hasTranslator);
+  console.log('[AI] - LanguageDetector:', hasLanguageDetector);
+  
+  try {
+    // Check Summarizer capability
+    if (hasSummarizer) {
+      try {
+        const SummarizerAPI = window.Summarizer || Summarizer;
+        const capability = await SummarizerAPI.capabilities();
+        console.log('[AI] Summarizer capability:', capability);
+        aiCapabilities.summarizer = capability && capability.available !== 'no';
+      } catch (e) {
+        console.log('[AI] Summarizer capability check failed:', e.message);
+        // Still mark as available if the constructor exists
+        aiCapabilities.summarizer = true;
+      }
+    }
+    
+    // Check Translator capability
+    if (hasTranslator) {
+      try {
+        const TranslatorAPI = window.Translator || Translator;
+        const capability = await TranslatorAPI.capabilities();
+        console.log('[AI] Translator capability:', capability);
+        aiCapabilities.translator = capability && capability.available !== 'no';
+      } catch (e) {
+        console.log('[AI] Translator capability check failed:', e.message);
+        aiCapabilities.translator = true;
+      }
+    }
+    
+    // Check Language Detector capability
+    if (hasLanguageDetector) {
+      try {
+        const LanguageDetectorAPI = window.LanguageDetector || LanguageDetector;
+        const capability = await LanguageDetectorAPI.capabilities();
+        console.log('[AI] LanguageDetector capability:', capability);
+        aiCapabilities.languageDetector = capability && capability.available !== 'no';
+      } catch (e) {
+        console.log('[AI] LanguageDetector capability check failed:', e.message);
+        aiCapabilities.languageDetector = true;
+      }
+    }
+    
+    console.log('[AI] Final capabilities:', aiCapabilities);
+    
+    // Show AI buttons if any capability is available
+    const hasAnyCapability = Object.values(aiCapabilities).some(cap => cap);
+    console.log('[AI] Has any capability:', hasAnyCapability);
+    
+    if (hasAnyCapability) {
+      if (aiButtonGroup) {
+        aiButtonGroup.style.display = 'flex';
+        console.log('[AI] AI button group shown');
+      }
+      
+      // Hide individual buttons if not available
+      if (summarizeBtn && !aiCapabilities.summarizer) {
+        summarizeBtn.style.display = 'none';
+      }
+      if (translateBtn && !aiCapabilities.translator) {
+        translateBtn.style.display = 'none';
+      }
+      if (detectLanguageBtn && !aiCapabilities.languageDetector) {
+        detectLanguageBtn.style.display = 'none';
+      }
+    }
+  } catch (error) {
+    console.error('Error checking AI capabilities:', error);
+  }
+}
+
+/**
+ * Handle summarize button click
+ */
+async function handleSummarize() {
+  if (!aiCapabilities.summarizer || !currentContent) {
+    showToast('Summarizer not available or no content to summarize', 'warning');
+    return;
+  }
+  
+  // Show loading state
+  summarizeBtn.classList.add('loading');
+  summarizeBtn.disabled = true;
+  
+  // Show summary container with loading
+  if (aiSummaryContainer) {
+    aiSummaryContainer.style.display = 'block';
+    aiSummaryContent.innerHTML = '<span class="ai-summary-loading">Analyzing content and generating summary...</span>';
+  }
+  
+  try {
+    const SummarizerAPI = window.Summarizer || Summarizer;
+    
+    // Create summarizer using the global constructor
+    console.log('[AI] Creating summarizer...');
+    if (aiSummaryContent) {
+      aiSummaryContent.innerHTML = '<span class="ai-summary-loading">Initializing AI model...</span>';
+    }
+    const summarizer = await SummarizerAPI.create();
+    
+    // Generate summary
+    console.log('[AI] Generating summary...');
+    if (aiSummaryContent) {
+      aiSummaryContent.innerHTML = '<span class="ai-summary-loading">Processing content (this may take a moment)...</span>';
+    }
+    const summary = await summarizer.summarize(currentContent);
+    
+    // Display summary
+    if (aiSummaryContent) {
+      aiSummaryContent.innerHTML = `
+        <div style="margin-bottom: 8px;">
+          <strong>📝 Summary:</strong>
+        </div>
+        <div style="margin-bottom: 12px;">${escapeHtml(summary)}</div>
+        <button id="insertSummaryBtn" style="
+          padding: 6px 12px;
+          background: var(--primary-color, #007bff);
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 13px;
+        ">Insert Summary into Document</button>
+      `;
+      
+      // Add click handler for insert button
+      const insertBtn = document.getElementById('insertSummaryBtn');
+      if (insertBtn) {
+        insertBtn.addEventListener('click', () => insertSummaryIntoDocument(summary));
+      }
+    }
+    
+    // Cleanup
+    if (summarizer.destroy) summarizer.destroy();
+    
+    // Success state
+    summarizeBtn.classList.remove('loading');
+    summarizeBtn.classList.add('success');
+    setTimeout(() => {
+      summarizeBtn.classList.remove('success');
+    }, 2000);
+    
+    showToast('Summary generated successfully', 'success');
+  } catch (error) {
+    console.error('Summarization error:', error);
+    
+    // Error state
+    if (aiSummaryContent) {
+      aiSummaryContent.innerHTML = `<span style="color: var(--error-color, #dc3545);">Failed to generate summary: ${error.message}</span>`;
+    }
+    
+    summarizeBtn.classList.remove('loading');
+    summarizeBtn.classList.add('error');
+    setTimeout(() => {
+      summarizeBtn.classList.remove('error');
+    }, 2000);
+    
+    showToast('Failed to generate summary: ' + error.message, 'error');
+  } finally {
+    summarizeBtn.disabled = false;
+  }
+}
+
+/**
+ * Insert AI-generated summary into document
+ */
+function insertSummaryIntoDocument(summary) {
+  if (!markdownEditor || !summary) return;
+  
+  const content = markdownEditor.value;
+  
+  // Check if document already has a summary section
+  const hasSummarySection = /^##?\s*(Summary|Overview|TL;?DR)/im.test(content);
+  
+  if (hasSummarySection) {
+    // Ask user if they want to replace existing summary
+    if (!confirm('This document appears to have an existing summary. Replace it with the AI-generated summary?')) {
+      return;
+    }
+    // Replace existing summary section
+    const updatedContent = content.replace(
+      /(^##?\s*(?:Summary|Overview|TL;?DR)[^\n]*\n)([\s\S]*?)(?=\n##?\s|$)/im,
+      `$1\n${summary}\n`
+    );
+    markdownEditor.value = updatedContent;
+  } else {
+    // Insert summary at the beginning after title (if exists)
+    const lines = content.split('\n');
+    let insertIndex = 0;
+    
+    // Skip title if it exists (# Title)
+    if (lines[0] && lines[0].trim().startsWith('# ')) {
+      insertIndex = 1;
+      // Skip empty lines after title
+      while (insertIndex < lines.length && !lines[insertIndex].trim()) {
+        insertIndex++;
+      }
+    }
+    
+    // Insert summary section
+    const summarySection = `\n## Summary\n\n${summary}\n`;
+    lines.splice(insertIndex, 0, summarySection);
+    markdownEditor.value = lines.join('\n');
+  }
+  
+  // Update content and preview
+  currentContent = markdownEditor.value;
+  renderPreview();
+  hasUnsavedChanges = true;
+  updateSaveButtonVisibility();
+  
+  showToast('Summary inserted into document', 'success');
+  
+  // Close summary container
+  if (aiSummaryContainer) {
+    aiSummaryContainer.style.display = 'none';
+  }
+}
+
+/**
+ * Handle detect language button click
+ */
+async function handleDetectLanguage() {
+  if (!aiCapabilities.languageDetector || !currentContent) {
+    showToast('Language detector not available or no content to analyze', 'warning');
+    return;
+  }
+  
+  // Show loading state
+  detectLanguageBtn.classList.add('loading');
+  detectLanguageBtn.disabled = true;
+  
+  try {
+    const LanguageDetectorAPI = window.LanguageDetector || LanguageDetector;
+    
+    // Create language detector using the global constructor
+    console.log('[AI] Creating language detector...');
+    const detector = await LanguageDetectorAPI.create();
+    
+    // Detect language
+    console.log('[AI] Detecting language...');
+    const results = await detector.detect(currentContent);
+    
+    if (results && results.length > 0) {
+      const topResult = results[0];
+      detectedLanguage = topResult.detectedLanguage || topResult.language;
+      const confidence = ((topResult.confidence || 0) * 100).toFixed(0);
+      
+      // Show language badge
+      if (aiLanguageBadge) {
+        aiLanguageBadge.textContent = detectedLanguage.toUpperCase();
+        aiLanguageBadge.title = `Detected language: ${detectedLanguage} (${confidence}% confidence)`;
+        aiLanguageBadge.style.display = 'inline-block';
+      }
+      
+      // Show summary container if not visible to show language badge
+      if (aiSummaryContainer) {
+        aiSummaryContainer.style.display = 'block';
+      }
+      
+      // Cleanup
+      if (detector.destroy) detector.destroy();
+      
+      // Success state
+      detectLanguageBtn.classList.remove('loading');
+      detectLanguageBtn.classList.add('success');
+      setTimeout(() => {
+        detectLanguageBtn.classList.remove('success');
+      }, 2000);
+      
+      showToast(`Language detected: ${detectedLanguage.toUpperCase()} (${confidence}% confidence)`, 'success');
+    } else {
+      throw new Error('No language detected');
+    }
+  } catch (error) {
+    console.error('Language detection error:', error);
+    
+    detectLanguageBtn.classList.remove('loading');
+    detectLanguageBtn.classList.add('error');
+    setTimeout(() => {
+      detectLanguageBtn.classList.remove('error');
+    }, 2000);
+    
+    showToast('Failed to detect language: ' + error.message, 'error');
+  } finally {
+    detectLanguageBtn.disabled = false;
+  }
+}
+
+/**
+ * Handle translate button click
+ */
+async function handleTranslate(targetLang) {
+  if (!aiCapabilities.translator || !currentContent) {
+    showToast('Translator not available or no content to translate', 'warning');
+    return;
+  }
+  
+  // Show modal with loading state
+  if (translationModal) {
+    translationModal.style.display = 'flex';
+  }
+  
+  if (translationLoading) {
+    translationLoading.style.display = 'block';
+    translationLoading.textContent = 'Initializing translator...';
+  }
+  
+  if (translationContent) {
+    translationContent.textContent = '';
+  }
+  
+  if (translationError) {
+    translationError.style.display = 'none';
+  }
+  
+  if (translationInfo) {
+    translationInfo.style.display = 'none';
+  }
+  
+  // Show loading state on button
+  translateBtn.classList.add('loading');
+  translateBtn.disabled = true;
+  
+  try {
+    const languageNames = {
+      'es': 'Spanish',
+      'fr': 'French',
+      'de': 'German',
+      'zh': 'Chinese',
+      'ja': 'Japanese',
+      'ko': 'Korean',
+      'pt': 'Portuguese',
+      'it': 'Italian'
+    };
+    
+    const sourceLang = detectedLanguage || 'en';
+    const cacheKey = `${sourceLang}-${targetLang}`;
+    
+    let translator;
+    
+    // Try to reuse cached translator for better performance
+    if (translatorCache.has(cacheKey)) {
+      console.log('[AI] Reusing cached translator:', cacheKey);
+      translator = translatorCache.get(cacheKey);
+      if (translationLoading) {
+        translationLoading.textContent = 'Translating content...';
+      }
+    } else {
+      // Create new translator
+      const TranslatorAPI = window.Translator || Translator;
+      console.log('[AI] Creating new translator:', cacheKey);
+      if (translationLoading) {
+        translationLoading.textContent = 'Loading translation model...';
+      }
+      
+      translator = await TranslatorAPI.create({
+        sourceLanguage: sourceLang,
+        targetLanguage: targetLang
+      });
+      
+      // Cache for reuse (limit cache size to 3 most recent)
+      if (translatorCache.size >= 3) {
+        const firstKey = translatorCache.keys().next().value;
+        const oldTranslator = translatorCache.get(firstKey);
+        if (oldTranslator && oldTranslator.destroy) oldTranslator.destroy();
+        translatorCache.delete(firstKey);
+      }
+      translatorCache.set(cacheKey, translator);
+      
+      if (translationLoading) {
+        translationLoading.textContent = 'Translating content...';
+      }
+    }
+    
+    // For large content, split into chunks to show progress
+    const CHUNK_SIZE = 5000; // characters per chunk
+    const contentLength = currentContent.length;
+    
+    if (contentLength > CHUNK_SIZE) {
+      // Split by paragraphs for better translation quality
+      const paragraphs = currentContent.split(/\n\n+/);
+      const translatedParts = [];
+      let processedChars = 0;
+      
+      for (let i = 0; i < paragraphs.length; i++) {
+        if (translationLoading) {
+          const progress = Math.round((processedChars / contentLength) * 100);
+          translationLoading.textContent = `Translating... ${progress}%`;
+        }
+        
+        const translated = await translator.translate(paragraphs[i]);
+        translatedParts.push(translated);
+        processedChars += paragraphs[i].length;
+      }
+      
+      currentTranslation = translatedParts.join('\n\n');
+    } else {
+      // Translate entire content at once for small documents
+      console.log('[AI] Translating content...');
+      currentTranslation = await translator.translate(currentContent);
+    }
+    
+    // Display translation
+    if (translationContent) {
+      translationContent.textContent = currentTranslation;
+    }
+    
+    if (translationInfo && translationLangInfo) {
+      translationLangInfo.textContent = `Translated from ${sourceLang.toUpperCase()} to ${targetLang.toUpperCase()}`;
+      translationInfo.style.display = 'block';
+    }
+    
+    // Success state
+    translateBtn.classList.remove('loading');
+    translateBtn.classList.add('success');
+    setTimeout(() => {
+      translateBtn.classList.remove('success');
+    }, 2000);
+    
+    showToast(`Translated to ${languageNames[targetLang] || targetLang}`, 'success');
+  } catch (error) {
+    console.error('Translation error:', error);
+    
+    // Show error in modal
+    if (translationError) {
+      translationError.textContent = `Translation failed: ${error.message}`;
+      translationError.style.display = 'block';
+    }
+    
+    translateBtn.classList.remove('loading');
+    translateBtn.classList.add('error');
+    setTimeout(() => {
+      translateBtn.classList.remove('error');
+    }, 2000);
+    
+    showToast('Translation failed: ' + error.message, 'error');
+  } finally {
+    if (translationLoading) {
+      translationLoading.style.display = 'none';
+    }
+    translateBtn.disabled = false;
+  }
+}
+
+/**
+ * Close translation modal
+ */
+function closeTranslationModal() {
+  if (translationModal) {
+    translationModal.style.display = 'none';
+  }
+}
+
+/**
+ * Copy translation to clipboard
+ */
+async function copyTranslationToClipboard() {
+  if (!currentTranslation) {
+    showToast('No translation to copy', 'warning');
+    return;
+  }
+  
+  try {
+    await navigator.clipboard.writeText(currentTranslation);
+    showToast('Translation copied to clipboard', 'success');
+  } catch (error) {
+    console.error('Copy error:', error);
+    showToast('Failed to copy translation', 'error');
+  }
+}
+
+/**
+ * Open translation in new tab
+ */
+function openTranslationInNewTab() {
+  if (!currentTranslation) {
+    showToast('No translation to open', 'warning');
+    return;
+  }
+  
+  const newWindow = window.open('', '_blank');
+  if (newWindow) {
+    newWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Translation - ${currentTitle}</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+          }
+          h1 { margin-bottom: 8px; }
+          .meta { color: #666; font-size: 14px; margin-bottom: 24px; }
+          .content { white-space: pre-wrap; }
+        </style>
+      </head>
+      <body>
+        <h1>${escapeHtml(currentTitle)} (Translated)</h1>
+        <div class="meta">Source: ${escapeHtml(currentUrl || 'Untitled')}</div>
+        <div class="content">${escapeHtml(currentTranslation)}</div>
+      </body>
+      </html>
+    `);
+    newWindow.document.close();
+    showToast('Translation opened in new tab', 'success');
+  } else {
+    showToast('Failed to open new tab. Please allow popups.', 'error');
+  }
+}
