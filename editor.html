@@ -137,7 +137,13 @@
     <header class="header">
       <div class="header-content">
         <div class="header-left">
-          <h1 class="title" id="docTitle" contenteditable="true" spellcheck="false">Untitled Document</h1>
+          <div class="title-wrapper">
+            <h1 class="title" id="docTitle" contenteditable="true" spellcheck="false">Untitled Document</h1>
+            <div class="title-actions" id="titleActions" style="display: none;">
+              <button class="title-action-btn" id="titleSaveBtn" title="Save title">✓</button>
+              <button class="title-action-btn" id="titleCancelBtn" title="Cancel">✕</button>
+            </div>
+          </div>
           <span class="url" id="sourceUrl"></span>
         </div>
         
@@ -198,25 +204,55 @@
       </div>
     </header>
     
+    <!-- Document Metadata Bar -->
+    <div class="header-meta" id="headerMeta">
+      <div class="meta-group">
+        <label>Group:</label>
+        <select id="groupSelect" class="meta-select">
+          <option value="">No Group</option>
+        </select>
+      </div>
+      <div class="meta-tags">
+        <label>Tags:</label>
+        <div class="tags-input-container" id="tagsInputContainer">
+          <div class="tags-display" id="tagsDisplay"></div>
+          <input type="text" id="tagInput" class="tag-input" placeholder="Add tag...">
+        </div>
+      </div>
+    </div>
+    
     <!-- Main Content Area -->
     <main class="main-content" id="mainContent">
       
-      <!-- Document Metadata Bar -->
-      <div class="header-meta" id="headerMeta">
-        <div class="meta-group">
-          <label>Group:</label>
-          <select id="groupSelect" class="meta-select">
-            <option value="">No Group</option>
-          </select>
-        </div>
-        <div class="meta-tags">
-          <label>Tags:</label>
-          <div class="tags-input-container" id="tagsInputContainer">
-            <div class="tags-display" id="tagsDisplay"></div>
-            <input type="text" id="tagInput" class="tag-input" placeholder="Add tag...">
+      <!-- Empty State (when no document selected) -->
+      <div class="empty-state-container" id="emptyStateContainer" style="display: none;">
+        <div class="empty-state-content">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          <h2>Welcome to InkShelf Editor</h2>
+          <p>Get started by selecting a document from the sidebar or creating a new one.</p>
+          <div class="empty-state-tips">
+            <div class="tip">
+              <strong>📝 Create:</strong> Click "+ New Document" to start writing
+            </div>
+            <div class="tip">
+              <strong>📂 Browse:</strong> Select any document from the left sidebar
+            </div>
+            <div class="tip">
+              <strong>🔍 Search:</strong> Use the search bar to find your documents
+            </div>
+            <div class="tip">
+              <strong>⚡ Quick Tip:</strong> Documents auto-save as you type
+            </div>
           </div>
         </div>
       </div>
+      
       <!-- Edit Mode -->
       <div id="editPanel" class="edit-container" style="display: none;">
         <textarea id="markdownEditor" class="markdown-editor" placeholder="Start writing in Markdown..."></textarea>

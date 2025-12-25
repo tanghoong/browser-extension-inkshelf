@@ -4,6 +4,7 @@
 let currentDocId = null;
 let currentContent = '';
 let currentTitle = '';
+let originalTitle = ''; // Track original title before editing
 let currentUrl = '';
 let viewMode = 'preview'; // 'preview', 'edit', 'split'
 let savedDocuments = [];
@@ -27,10 +28,15 @@ const shareDropdownMenu = document.getElementById('shareDropdownMenu');
 const shareThirdPartyBtn = document.getElementById('shareThirdPartyBtn');
 const saveBtn = document.getElementById('saveBtn');
 const docTitle = document.getElementById('docTitle');
+const titleActions = document.getElementById('titleActions');
+const titleSaveBtn = document.getElementById('titleSaveBtn');
+const titleCancelBtn = document.getElementById('titleCancelBtn');
 const sourceUrl = document.getElementById('sourceUrl');
 const statusText = document.getElementById('statusText');
 const wordCount = document.getElementById('wordCount');
 const dropZone = document.getElementById('dropZone');
+const emptyStateContainer = document.getElementById('emptyStateContainer');
+const headerMeta = document.getElementById('headerMeta');
 const optionsBtn = document.getElementById('optionsBtn');
 const optionsDropdownMenu = document.getElementById('optionsDropdownMenu');
 const settingsMenuItem = document.getElementById('settingsMenuItem');
@@ -59,6 +65,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeAutoSave();
   updateThemeLabel();
   
+  // Show empty state initially
+  showEmptyState();
+  
   // Configure marked.js
   if (typeof marked !== 'undefined') {
     marked.setOptions({
@@ -85,7 +94,11 @@ async function initializeEditor(data) {
   currentDocId = data.docId;
   currentContent = data.content || '';
   currentTitle = data.title || 'Untitled';
+  originalTitle = currentTitle; // Store original title
   currentUrl = data.url || '';
+  
+  // Hide empty state and show document UI
+  hideEmptyState();
   
   // Update UI
   docTitle.textContent = currentTitle;
@@ -236,23 +249,48 @@ function setupEventListeners() {
   
   // Handle title editing
   if (docTitle) {
-    docTitle.addEventListener('blur', () => {
-      const newTitle = docTitle.textContent.trim();
-      if (newTitle && newTitle !== currentTitle) {
-        currentTitle = newTitle;
-        // Auto-save when title changes
-        if (currentDocId) {
-          saveDocument();
-        }
+    // Show action buttons on focus
+    docTitle.addEventListener('focus', () => {
+      originalTitle = docTitle.textContent.trim();
+      if (titleActions) {
+        titleActions.style.display = 'flex';
       }
     });
     
-    // Handle Enter key in title (blur instead of new line)
+    // Hide action buttons on blur (with delay to allow button clicks)
+    docTitle.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (titleActions && !titleActions.matches(':hover')) {
+          titleActions.style.display = 'none';
+        }
+      }, 200);
+    });
+    
+    // Handle Enter key in title (save instead of new line)
     docTitle.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        docTitle.blur();
+        saveTitleChange();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelTitleChange();
       }
+    });
+  }
+  
+  // Title save button
+  if (titleSaveBtn) {
+    titleSaveBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      saveTitleChange();
+    });
+  }
+  
+  // Title cancel button
+  if (titleCancelBtn) {
+    titleCancelBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      cancelTitleChange();
     });
   }
   
@@ -268,6 +306,71 @@ function setupEventListeners() {
       applySettings();
     }
   });
+}
+
+/**
+ * Save title change
+ */
+function saveTitleChange() {
+  const newTitle = docTitle.textContent.trim();
+  if (newTitle && newTitle !== currentTitle) {
+    currentTitle = newTitle;
+    originalTitle = newTitle;
+    // Auto-save when title changes
+    if (currentDocId) {
+      saveDocument();
+    }
+  }
+  // Hide action buttons
+  if (titleActions) {
+    titleActions.style.display = 'none';
+  }
+  docTitle.blur();
+}
+
+/**
+ * Cancel title change
+ */
+function cancelTitleChange() {
+  // Restore original title
+  docTitle.textContent = originalTitle || currentTitle;
+  // Hide action buttons
+  if (titleActions) {
+    titleActions.style.display = 'none';
+  }
+  docTitle.blur();
+}
+
+/**
+ * Show empty state when no document is selected
+ */
+function showEmptyState() {
+  if (emptyStateContainer) {
+    emptyStateContainer.style.display = 'flex';
+  }
+  // Hide document-related elements
+  const header = document.querySelector('.header');
+  const statusBar = document.querySelector('.status-bar');
+  if (header) header.style.display = 'none';
+  if (statusBar) statusBar.style.display = 'none';
+  if (headerMeta) headerMeta.style.display = 'none';
+  if (editPanel) editPanel.style.display = 'none';
+  if (previewPanel) previewPanel.style.display = 'none';
+}
+
+/**
+ * Hide empty state when a document is selected
+ */
+function hideEmptyState() {
+  if (emptyStateContainer) {
+    emptyStateContainer.style.display = 'none';
+  }
+  // Show document-related elements
+  const header = document.querySelector('.header');
+  const statusBar = document.querySelector('.status-bar');
+  if (header) header.style.display = 'flex';
+  if (statusBar) statusBar.style.display = 'flex';
+  if (headerMeta) headerMeta.style.display = 'flex';
 }
 
 /**
@@ -482,11 +585,17 @@ async function handleContentChange() {
   
   currentContent = newContent;
   
+  // Parse frontmatter and update UI
+  parseFrontmatterAndUpdateUI(currentContent);
+  
   // Save to session storage
   storageManager.saveToSession(currentDocId, currentContent);
   
   // Check if auto-save is enabled
   if (autoSaveEnabled) {
+    // Show saving indicator
+    showAutoSaveStatus('saving');
+    
     // Debounced save to IndexedDB
     clearTimeout(window.saveTimeout);
     window.saveTimeout = setTimeout(async () => {
@@ -496,6 +605,14 @@ async function handleContentChange() {
         title: currentTitle,
         url: currentUrl
       });
+      
+      // Show saved indicator
+      showAutoSaveStatus('saved');
+      
+      // Clear saved indicator after 2 seconds
+      setTimeout(() => {
+        showAutoSaveStatus('idle');
+      }, 2000);
     }, 1000);
   }
   
@@ -509,6 +626,123 @@ function updateWordCount() {
   const text = currentContent.trim();
   const words = text ? text.split(/\s+/).length : 0;
   wordCount.textContent = `${words} word${words !== 1 ? 's' : ''}`;
+}
+
+/**
+ * Parse frontmatter from markdown and update UI
+ */
+function parseFrontmatterAndUpdateUI(content) {
+  // Check if content has frontmatter (starts with ---)
+  if (!content.trim().startsWith('---')) {
+    return;
+  }
+  
+  const lines = content.split('\n');
+  let frontmatterEnd = -1;
+  
+  // Find the end of frontmatter
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '---') {
+      frontmatterEnd = i;
+      break;
+    }
+  }
+  
+  if (frontmatterEnd === -1) {
+    return;
+  }
+  
+  // Parse frontmatter lines
+  const frontmatterLines = lines.slice(1, frontmatterEnd);
+  const frontmatter = {};
+  
+  for (const line of frontmatterLines) {
+    const colonIndex = line.indexOf(':');
+    if (colonIndex > -1) {
+      const key = line.substring(0, colonIndex).trim();
+      const value = line.substring(colonIndex + 1).trim();
+      frontmatter[key] = value;
+    }
+  }
+  
+  // Update title if present
+  if (frontmatter.title && docTitle) {
+    const newTitle = frontmatter.title.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
+    if (newTitle !== currentTitle) {
+      currentTitle = newTitle;
+      originalTitle = newTitle;
+      docTitle.textContent = newTitle;
+    }
+  }
+  
+  // Update source URL if present
+  if (frontmatter.source && sourceUrl) {
+    const newUrl = frontmatter.source.replace(/^"|"$/g, '').replace(/^'|'$/g, '');
+    if (newUrl !== currentUrl) {
+      currentUrl = newUrl;
+      sourceUrl.textContent = newUrl;
+    }
+  }
+  
+  // Update tags if present
+  if (frontmatter.tags) {
+    const tagsStr = frontmatter.tags.replace(/^\[|\]$/g, '').replace(/^"|"$/g, '').replace(/^'|'$/g, '');
+    const tags = tagsStr.split(',').map(t => t.trim()).filter(t => t);
+    
+    if (tags.length > 0) {
+      // Clear existing tags
+      const tagsDisplay = document.getElementById('tagsDisplay');
+      if (tagsDisplay) {
+        tagsDisplay.innerHTML = '';
+        
+        // Add tags to UI
+        tags.forEach(tag => {
+          const tagBadge = document.createElement('span');
+          tagBadge.className = 'tag-badge';
+          tagBadge.innerHTML = `
+            ${tag}
+            <button class="remove-tag" data-tag="${tag}" aria-label="Remove tag">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          `;
+          tagsDisplay.appendChild(tagBadge);
+        });
+      }
+    }
+  }
+}
+
+/**
+ * Show auto-save status indicator
+ */
+function showAutoSaveStatus(status) {
+  if (!statusText) return;
+  
+  switch (status) {
+    case 'saving':
+      statusText.textContent = 'Saving...';
+      statusText.style.color = '#f39c12';
+      break;
+    case 'saved':
+      statusText.textContent = 'Saved';
+      statusText.style.color = '#28a745';
+      break;
+    case 'idle':
+    default:
+      // Restore to view mode indicator
+      if (viewMode === 'preview') {
+        statusText.textContent = 'Preview Mode';
+      } else if (viewMode === 'edit') {
+        statusText.textContent = 'Edit Mode';
+      } else {
+        statusText.textContent = 'Split Mode';
+      }
+      statusText.style.color = '';
+      break;
+  }
 }
 
 /**
@@ -1043,6 +1277,17 @@ async function loadDocument(docId) {
   if (doc) {
     initializeEditor(doc);
     renderDocumentList();
+    
+    // Switch to preview mode to show rendered markdown
+    setViewMode('preview');
+    
+    // Scroll to top of content
+    if (previewPanel) {
+      previewPanel.scrollTop = 0;
+    }
+    if (mainContent) {
+      mainContent.scrollTop = 0;
+    }
   }
 }
 
@@ -1068,17 +1313,26 @@ async function deleteDocumentFromList(docId) {
   
   await storageManager.deleteDraft(docId);
   
-  // If deleting current document, create new one
+  // If deleting current document, check if there are other documents
   if (docId === currentDocId) {
-    const newDocId = StorageManager.generateTempDocId();
-    currentDocId = newDocId;
-    currentContent = '';
-    currentTitle = 'Untitled';
-    currentUrl = '';
-    markdownEditor.value = '';
-    docTitle.textContent = currentTitle;
-    sourceUrl.textContent = '';
-    renderPreview();
+    // Get all remaining documents
+    const allDocs = await storageManager.getAllDrafts();
+    
+    if (allDocs && allDocs.length > 0) {
+      // Load the first available document
+      await loadDocument(allDocs[0].docId);
+    } else {
+      // No documents left, show empty state
+      currentDocId = null;
+      currentContent = '';
+      currentTitle = '';
+      originalTitle = '';
+      currentUrl = '';
+      markdownEditor.value = '';
+      docTitle.textContent = '';
+      sourceUrl.textContent = '';
+      showEmptyState();
+    }
   }
   
   await loadSavedDocuments();
@@ -1094,10 +1348,15 @@ async function saveDocument() {
   
   currentContent = markdownEditor.value;
   
+  // Parse frontmatter first
+  parseFrontmatterAndUpdateUI(currentContent);
+  
   // Extract title from content or use default
   const firstLine = currentContent.split('\n')[0];
   if (firstLine.startsWith('# ')) {
     currentTitle = firstLine.substring(2).trim();
+    originalTitle = currentTitle;
+    docTitle.textContent = currentTitle;
   } else if (!currentTitle || currentTitle === 'Untitled') {
     currentTitle = 'Document ' + new Date().toLocaleDateString();
   }
@@ -1184,6 +1443,15 @@ function applyWordWrap() {
   if (markdownEditor) {
     markdownEditor.style.whiteSpace = wordWrapEnabled ? 'pre-wrap' : 'pre';
     markdownEditor.style.overflowX = wordWrapEnabled ? 'hidden' : 'auto';
+  }
+  
+  // Apply word wrap to preview content as well
+  if (previewContent) {
+    if (wordWrapEnabled) {
+      previewContent.classList.remove('no-wrap');
+    } else {
+      previewContent.classList.add('no-wrap');
+    }
   }
   
   if (wordWrapToggle && wordWrapLabel) {
