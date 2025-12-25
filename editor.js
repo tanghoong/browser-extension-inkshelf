@@ -3163,7 +3163,7 @@ async function autoProcessCapturedContent() {
       renderPreview();
       
       // Auto-save the document
-      await saveCurrentDocument();
+      await saveDocument();
       
       showToast('success', 'Content translated to English and enhanced successfully!');
     } else {
@@ -3224,7 +3224,7 @@ async function handleAIHelpWrite() {
       renderPreview();
       
       // Auto-save the document
-      await saveCurrentDocument();
+      await saveDocument();
       
       showToast('success', 'Content enhanced and saved successfully!');
     } else {
