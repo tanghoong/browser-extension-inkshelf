@@ -224,10 +224,9 @@ async function handleExportBackup() {
   
   try {
     if (typeof backupManager !== 'undefined') {
-      await backupManager.exportBackup();
+      await backupManager.downloadBackup();
       
-      // Update last backup time
-      localStorage.setItem('inkshelf-last-backup', Date.now().toString());
+      // Update last backup time is already handled by downloadBackup
       loadBackupSettings();
       
       showNotification('Backup exported successfully!', 'success');
@@ -303,7 +302,9 @@ async function handleImportBackup(e) {
   
   try {
     if (typeof backupManager !== 'undefined' && file.name.endsWith('.zip')) {
-      const result = await backupManager.importBackup(file);
+      // Use 'merge' strategy to add imported documents without overwriting existing ones
+      // This prevents accidental data loss when importing backups
+      const result = await backupManager.importFromZip(file, 'merge');
       showNotification(`Imported ${result.imported} documents successfully!`, 'success');
     } else if (file.name.endsWith('.json')) {
       // Handle JSON backup

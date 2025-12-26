@@ -227,6 +227,9 @@ function setupEventListeners() {
     }
   });
   
+  // Scroll timeout for synchronized scrolling (declare once)
+  let scrollTimeout;
+  
   // Auto-save on content change
   if (markdownEditor) {
     markdownEditor.addEventListener('input', handleContentChange);
@@ -248,8 +251,8 @@ function setupEventListeners() {
       }
     });
   }
+  
   // Synchronized scrolling for preview panel
-  let scrollTimeout;
   if (previewPanel) {
     previewPanel.addEventListener('scroll', () => {
       if (viewMode === 'split' && !isScrollSyncing) {
@@ -717,8 +720,8 @@ function parseFrontmatterAndUpdateUI(content) {
           const tagBadge = document.createElement('span');
           tagBadge.className = 'tag-badge';
           tagBadge.innerHTML = `
-            ${tag}
-            <button class="remove-tag" data-tag="${tag}" aria-label="Remove tag">
+            ${escapeHtml(tag)}
+            <button class="remove-tag" data-tag="${escapeHtml(tag)}" aria-label="Remove tag">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -1031,6 +1034,48 @@ function escapeHtml(text) {
 }
 
 /**
+ * Validate and sanitize CSS color value
+ * Only allows hex colors (#RGB, #RRGGBB, #RGBA, #RRGGBBAA) and named colors
+ * @param {string} color - Color value to validate
+ * @param {string} fallback - Fallback color if invalid
+ * @returns {string} Validated color or fallback
+ */
+function sanitizeCssColor(color, fallback = '#6c757d') {
+  if (!color || typeof color !== 'string') return fallback;
+  
+  const trimmedColor = color.trim();
+  
+  // Hex colors: #RGB, #RRGGBB, #RGBA, #RRGGBBAA
+  if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{8})$/.test(trimmedColor)) {
+    return trimmedColor;
+  }
+  
+  // Named CSS colors (common ones used in the app)
+  const namedColors = [
+    'blue', 'green', 'red', 'gold', 'purple', 'orange', 'teal', 'gray', 'grey',
+    'white', 'black', 'transparent', 'inherit', 'currentColor'
+  ];
+  if (namedColors.includes(trimmedColor.toLowerCase())) {
+    return trimmedColor;
+  }
+  
+  // rgb() and rgba() formats - validate format first, then check value ranges
+  const rgbMatch = trimmedColor.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(,\s*(0|1|0?\.\d+))?\s*\)$/i);
+  if (rgbMatch) {
+    const r = parseInt(rgbMatch[1], 10);
+    const g = parseInt(rgbMatch[2], 10);
+    const b = parseInt(rgbMatch[3], 10);
+    // Ensure RGB values are within valid 0-255 range
+    if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
+      return trimmedColor;
+    }
+  }
+  
+  // Return fallback for invalid colors
+  return fallback;
+}
+
+/**
  * Load saved documents from storage
  */
 async function loadSavedDocuments() {
@@ -1117,11 +1162,11 @@ function renderDocumentList() {
           </svg>
         </button>
         <div class="document-menu-dropdown">
-          <button class="menu-item star-btn ${starClass}" data-doc-id="${doc.docId}">
+          <button class="menu-item star-btn ${starClass}" data-doc-id="${escapeHtml(doc.docId)}">
             <span class="star-icon">${starIcon}</span>
             <span>${doc.starred ? 'Unstar' : 'Star'}</span>
           </button>
-          <button class="menu-item delete-btn" data-doc-id="${doc.docId}">
+          <button class="menu-item delete-btn" data-doc-id="${escapeHtml(doc.docId)}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -1848,11 +1893,11 @@ function createDocumentItem(doc) {
         </svg>
       </button>
       <div class="document-menu-dropdown">
-        <button class="menu-item star-btn ${doc.starred ? 'starred' : ''}" data-doc-id="${doc.docId}">
+        <button class="menu-item star-btn ${doc.starred ? 'starred' : ''}" data-doc-id="${escapeHtml(doc.docId)}">
           <span class="star-icon">${doc.starred ? '\u2605' : '\u2606'}</span>
           <span>${doc.starred ? 'Unstar' : 'Star'}</span>
         </button>
-        <button class="menu-item delete-btn" data-doc-id="${doc.docId}">
+        <button class="menu-item delete-btn" data-doc-id="${escapeHtml(doc.docId)}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"></polyline>
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -1954,9 +1999,9 @@ function renderGroupsList() {
   allGroups.forEach(group => {
     const count = savedDocuments.filter(d => d.groupId === group.groupId).length;
     html += `
-      <div class="group-item ${currentGroup === group.groupId ? 'active' : ''}" data-group-id="${group.groupId}">
-        <div class="group-icon" style="background: ${group.color || '#6c757d'};">
-          ${group.icon || '📁'}
+      <div class="group-item ${currentGroup === group.groupId ? 'active' : ''}" data-group-id="${escapeHtml(group.groupId)}">
+        <div class="group-icon" style="background: ${sanitizeCssColor(group.color)};">
+          ${escapeHtml(group.icon || '📁')}
         </div>
         <span class="group-name">${escapeHtml(group.name)}</span>
         <button class="group-menu-btn" title="Group options">
@@ -1968,14 +2013,14 @@ function renderGroupsList() {
         </button>
         <span class="group-count">${count}</span>
         <div class="group-menu-dropdown">
-          <button class="menu-item rename-group-btn" data-group-id="${group.groupId}">
+          <button class="menu-item rename-group-btn" data-group-id="${escapeHtml(group.groupId)}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
             </svg>
             <span>Rename</span>
           </button>
-          <button class="menu-item delete-group-btn" data-group-id="${group.groupId}">
+          <button class="menu-item delete-group-btn" data-group-id="${escapeHtml(group.groupId)}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -3249,14 +3294,14 @@ async function handleAIHelpWrite() {
 async function parseAndUpdateMetadata(content) {
   try {
     // Extract YAML front matter
-    const frontMatterMatch = content.match(/^---\\s*\\n([\\s\\S]*?)\\n---/);
+    const frontMatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
     if (!frontMatterMatch) {
       console.log('No front matter found');
       return;
     }
     
     const frontMatterText = frontMatterMatch[1];
-    const lines = frontMatterText.split('\\n');
+    const lines = frontMatterText.split('\n');
     const metadata = {};
     let currentKey = null;
     const tagsArray = [];
@@ -3264,14 +3309,14 @@ async function parseAndUpdateMetadata(content) {
     // Parse YAML with support for arrays
     lines.forEach(line => {
       // Check for array items (tags)
-      const arrayMatch = line.match(/^\\s*-\\s+(.+)$/);
+      const arrayMatch = line.match(/^\s*-\s+(.+)$/);
       if (arrayMatch && currentKey === 'tags') {
         tagsArray.push(arrayMatch[1].trim());
         return;
       }
       
       // Check for key: value pairs
-      const match = line.match(/^([^:]+):\\s*(.*)$/);
+      const match = line.match(/^([^:]+):\s*(.*)$/);
       if (match) {
         const key = match[1].trim();
         const value = match[2].trim();
@@ -3312,23 +3357,8 @@ async function parseAndUpdateMetadata(content) {
     
     // Update tags if available
     if (metadata.tags && Array.isArray(metadata.tags)) {
-      const tagsDisplay = document.getElementById('tagsDisplay');
-      if (tagsDisplay && metadata.tags.length > 0) {
-        tagsDisplay.innerHTML = '';
-        metadata.tags.forEach(tag => {
-          const tagSpan = document.createElement('span');
-          tagSpan.className = 'tag';
-          tagSpan.innerHTML = `
-            ${escapeHtml(tag)}
-            <button class=\"tag-remove\" data-tag=\"${escapeHtml(tag)}\" title=\"Remove tag\">×</button>
-          `;
-          tagsDisplay.appendChild(tagSpan);
-          
-          // Add remove event listener
-          const removeBtn = tagSpan.querySelector('.tag-remove');
-          removeBtn.addEventListener('click', () => removeTag(tag));
-        });
-      }
+      currentTags = metadata.tags;
+      renderCurrentTags();
     }
     
     console.log('Metadata updated:', metadata);
@@ -3453,11 +3483,6 @@ function displayAIError(error) {
       <p style="font-size: 14px; font-weight: 500; margin-bottom: 8px; color: var(--text-primary);">Request Failed</p>
       <p style="font-size: 13px; color: var(--text-secondary);">${escapeHtml(error)}</p>
       <p style="font-size: 12px; color: var(--text-secondary); margin-top: 16px;">Please check your API key and try again.</p>
-    </div>
-        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-      </svg>
-      <p style="font-size: 14px; font-weight: 500; margin-bottom: 8px;">Request Failed</p>
-      <p style="font-size: 13px;">${error}</p>
     </div>
   `;
 }
