@@ -1059,9 +1059,16 @@ function sanitizeCssColor(color, fallback = '#6c757d') {
     return trimmedColor;
   }
   
-  // rgb() and rgba() formats
-  if (/^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*(0|1|0?\.\d+))?\s*\)$/i.test(trimmedColor)) {
-    return trimmedColor;
+  // rgb() and rgba() formats - validate format first, then check value ranges
+  const rgbMatch = trimmedColor.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(,\s*(0|1|0?\.\d+))?\s*\)$/i);
+  if (rgbMatch) {
+    const r = parseInt(rgbMatch[1], 10);
+    const g = parseInt(rgbMatch[2], 10);
+    const b = parseInt(rgbMatch[3], 10);
+    // Ensure RGB values are within valid 0-255 range
+    if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
+      return trimmedColor;
+    }
   }
   
   // Return fallback for invalid colors
